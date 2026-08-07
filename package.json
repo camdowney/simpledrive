@@ -1,0 +1,13 @@
+{
+  "name": "simpledrive",
+  "scripts": {
+    "dev": "./dev.sh",
+    "format": "prettier --write web/static/js/ web/static/css/",
+    "vendor:age": "esbuild build/vendor/age-entry.js --bundle --format=iife --global-name=age --minify --target=es2020 --outfile=web/static/vendor/age.min.js"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.4",
+    "age-encryption": "0.3.0",
+    "esbuild": "^0.25.0"
+  }
+}

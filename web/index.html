@@ -1,0 +1,1221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Only a static max scale stops iOS zooming into focused fields; toggling it on focus is too late. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Drive</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="manifest" href="/static/manifest.json" />
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Drive" />
+    <!-- boot.js overwrites this to match the theme it resolves, before the bar is ever painted. -->
+    <meta name="theme-color" id="theme-color" content="#16171a" />
+    <link rel="stylesheet" href="/static/css/style.css" />
+    <link rel="stylesheet" href="/static/vendor/toastui-editor.min.css" />
+    <link rel="stylesheet" href="/static/vendor/tui-color-picker.min.css" />
+    <link rel="stylesheet" href="/static/vendor/toastui-editor-plugin-color-syntax.min.css" />
+    <script src="/static/js/boot.js"></script>
+  </head>
+  <body>
+    <!-- SVG icon sprite — add new icons here, reference via <use href="#icon-*"> -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="display: none">
+      <symbol
+        id="icon-log-in"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+        <polyline points="10 17 15 12 10 7" />
+        <line x1="15" y1="12" x2="3" y2="12" />
+      </symbol>
+      <symbol
+        id="icon-log-out"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" y1="12" x2="9" y2="12" />
+      </symbol>
+      <symbol
+        id="icon-folder-plus"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        <line x1="12" y1="11" x2="12" y2="17" />
+        <line x1="9" y1="14" x2="15" y2="14" />
+      </symbol>
+      <symbol
+        id="icon-folder"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </symbol>
+      <symbol
+        id="icon-cloud"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
+      </symbol>
+      <symbol
+        id="icon-hard-drive"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="22" y1="12" x2="2" y2="12" />
+        <path
+          d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+        />
+        <line x1="6" y1="16" x2="6.01" y2="16" />
+        <line x1="10" y1="16" x2="10.01" y2="16" />
+      </symbol>
+      <symbol
+        id="icon-move"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="15 14 20 9 15 4" />
+        <path d="M4 20v-7a4 4 0 0 1 4-4h12" />
+      </symbol>
+      <symbol
+        id="icon-upload"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </symbol>
+      <symbol
+        id="icon-pencil"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </symbol>
+      <symbol
+        id="icon-info"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="16" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12.01" y2="8" />
+      </symbol>
+      <symbol
+        id="icon-download"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </symbol>
+      <symbol
+        id="icon-trash"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <path d="M8 5v14l11-7z" />
+      </symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" />
+      </symbol>
+      <symbol
+        id="icon-level"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="5" y1="20" x2="5" y2="12" />
+        <line x1="10" y1="20" x2="10" y2="8" />
+        <line x1="15" y1="20" x2="15" y2="8" />
+        <line x1="20" y1="20" x2="20" y2="12" />
+        <line x1="3" y1="5" x2="22" y2="5" />
+      </symbol>
+      <symbol
+        id="icon-wand"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="4" y1="20" x2="14" y2="10" />
+        <path d="M16 4v4M14 6h4M18 12v3M16.5 13.5h3M8 3v2M7 4h2" />
+      </symbol>
+      <symbol
+        id="icon-list"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="3" y1="6" x2="21" y2="6" />
+        <line x1="3" y1="12" x2="21" y2="12" />
+        <line x1="3" y1="18" x2="21" y2="18" />
+      </symbol>
+      <symbol
+        id="icon-grid"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="14" y="14" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+      </symbol>
+      <symbol
+        id="icon-arrow-up"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="12" y1="20" x2="12" y2="4" />
+        <polyline points="4 12 12 4 20 12" />
+      </symbol>
+      <symbol
+        id="icon-arrow-left"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="19" y1="12" x2="5" y2="12" />
+        <polyline points="12 19 5 12 12 5" />
+      </symbol>
+      <symbol
+        id="icon-save"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+        <polyline points="17 21 17 13 7 13 7 21" />
+        <polyline points="7 3 7 8 15 8" />
+      </symbol>
+      <symbol
+        id="icon-plus"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <line x1="5" y1="12" x2="19" y2="12" />
+      </symbol>
+      <symbol
+        id="icon-minus"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="5" y1="12" x2="19" y2="12" />
+      </symbol>
+      <symbol
+        id="icon-check"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="4 12 9 17 20 6" />
+      </symbol>
+      <symbol
+        id="icon-file"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+      </symbol>
+      <symbol
+        id="icon-file-text"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+        <polyline points="10 9 9 9 8 9" />
+      </symbol>
+      <symbol
+        id="icon-copy"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </symbol>
+      <symbol
+        id="icon-unlink"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M9 17H7A5 5 0 0 1 7 7" />
+        <path d="M15 7h2a5 5 0 0 1 4 8" />
+        <line x1="8" y1="12" x2="12" y2="12" />
+        <line x1="2" y1="2" x2="22" y2="22" />
+      </symbol>
+      <symbol
+        id="icon-users"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </symbol>
+      <symbol
+        id="icon-moon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </symbol>
+      <symbol
+        id="icon-sun"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="5" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+      </symbol>
+      <symbol
+        id="icon-chevron-left"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="15 18 9 12 15 6" />
+      </symbol>
+      <symbol
+        id="icon-chevron-right"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="9 18 15 12 9 6" />
+      </symbol>
+      <symbol
+        id="icon-chevron-down"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="6 9 12 15 18 9" />
+      </symbol>
+      <symbol
+        id="icon-tag"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M20.59 13.41 12 22l-9-9V3h10l7.59 7.59a2 2 0 0 1 0 2.82z" />
+        <line x1="7" y1="7" x2="7.01" y2="7" />
+      </symbol>
+      <symbol
+        id="icon-search"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </symbol>
+      <symbol
+        id="icon-repeat"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="17 1 21 5 17 9" />
+        <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+        <polyline points="7 23 3 19 7 15" />
+        <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+      </symbol>
+      <symbol
+        id="icon-shuffle"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="16 3 21 3 21 8" />
+        <line x1="4" y1="20" x2="21" y2="3" />
+        <polyline points="21 16 21 21 16 21" />
+        <line x1="15" y1="15" x2="21" y2="21" />
+        <line x1="4" y1="4" x2="9" y2="9" />
+      </symbol>
+      <symbol
+        id="icon-external-link"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        <polyline points="15 3 21 3 21 9" />
+        <line x1="10" y1="14" x2="21" y2="3" />
+      </symbol>
+      <symbol
+        id="icon-more-vertical"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="12" cy="5" r="1" />
+        <circle cx="12" cy="19" r="1" />
+      </symbol>
+      <symbol
+        id="icon-lock"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </symbol>
+      <symbol
+        id="icon-unlock"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+      </symbol>
+    </svg>
+
+    <!-- Login -->
+    <div id="login-view" class="hidden">
+      <div class="login-card">
+        <h1>Drive</h1>
+        <div id="login-error"></div>
+        <form id="login-form" autocomplete="on">
+          <input
+            type="text"
+            id="username-input"
+            name="username"
+            placeholder="Username"
+            autocomplete="username"
+          />
+          <input
+            type="password"
+            id="password-input"
+            name="password"
+            placeholder="Password"
+            autocomplete="current-password"
+          />
+          <button
+            type="submit"
+            class="btn btn-primary btn-lg"
+            id="login-btn"
+            style="width: 100%; justify-content: center"
+          >
+            Sign in
+          </button>
+        </form>
+      </div>
+      <div class="login-footer">
+        <button class="btn btn-ghost theme-toggle js-theme-toggle" aria-label="Toggle theme">
+          <svg class="btn-icon theme-icon-moon" aria-hidden="true">
+            <use href="#icon-moon" />
+          </svg>
+          <svg class="btn-icon theme-icon-sun" aria-hidden="true">
+            <use href="#icon-sun" />
+          </svg>
+          <span class="theme-label-dark">Dark mode</span>
+          <span class="theme-label-light">Light mode</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Revoked or expired share link -->
+    <div id="share-gone" class="hidden">
+      <div class="login-card">
+        <h1>Link unavailable</h1>
+        <p class="share-gone-message">This share link is no longer valid.</p>
+      </div>
+    </div>
+
+    <!-- Main app -->
+    <div id="app-view" class="hidden">
+      <!-- Browser view -->
+      <div id="browser-view" class="hidden">
+        <div class="topbar">
+          <a class="topbar-title js-home" href="#">
+            <img class="topbar-logo" src="/static/favicon.svg" alt="" width="32" height="32" />
+            Drive
+          </a>
+          <div class="header-actions">
+            <button class="btn btn-ghost js-storage" title="Storage" aria-label="Storage">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-hard-drive" />
+              </svg>
+            </button>
+            <button
+              class="btn btn-ghost theme-toggle js-theme-toggle"
+              title="Toggle theme"
+              aria-label="Toggle theme"
+            >
+              <svg class="btn-icon theme-icon-moon" aria-hidden="true">
+                <use href="#icon-moon" />
+              </svg>
+              <svg class="btn-icon theme-icon-sun" aria-hidden="true">
+                <use href="#icon-sun" />
+              </svg>
+            </button>
+            <button class="btn btn-ghost js-logout" title="Sign out" aria-label="Sign out">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-log-out" />
+              </svg>
+              <span class="btn-label">Sign out</span>
+            </button>
+          </div>
+        </div>
+        <div class="breadcrumb-row">
+          <a class="breadcrumb-logo js-home" href="#" aria-label="Home">
+            <img src="/static/favicon.svg" alt="SimpleDrive" width="30" height="30" />
+          </a>
+          <nav class="breadcrumb" id="breadcrumb">
+            <span class="current"><span class="crumb-name">&nbsp;</span></span>
+          </nav>
+          <div class="crumb-popover popover" id="crumb-popover">
+            <button class="popover-item" id="crumb-rename-btn">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-pencil" />
+              </svg>
+              Rename
+            </button>
+            <button class="popover-item" id="crumb-tags-btn">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-tag" />
+              </svg>
+              Tags
+            </button>
+            <button class="popover-item" id="crumb-share-btn">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-users" />
+              </svg>
+              Share
+            </button>
+            <button class="popover-item" id="crumb-details-btn">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-info" />
+              </svg>
+              Details
+            </button>
+            <button class="popover-item" id="crumb-download-btn">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-download" />
+              </svg>
+              Download
+            </button>
+            <button class="popover-item" id="crumb-delete-btn">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-trash" />
+              </svg>
+              Delete
+            </button>
+          </div>
+          <div class="header-actions breadcrumb-actions">
+            <button class="btn btn-ghost js-storage" title="Storage" aria-label="Storage">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-hard-drive" />
+              </svg>
+            </button>
+            <button
+              class="btn btn-ghost theme-toggle js-theme-toggle"
+              title="Toggle theme"
+              aria-label="Toggle theme"
+            >
+              <svg class="btn-icon theme-icon-moon" aria-hidden="true">
+                <use href="#icon-moon" />
+              </svg>
+              <svg class="btn-icon theme-icon-sun" aria-hidden="true">
+                <use href="#icon-sun" />
+              </svg>
+            </button>
+            <button class="btn btn-ghost js-logout" title="Sign out" aria-label="Sign out">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-log-out" />
+              </svg>
+              <span class="btn-label">Sign out</span>
+            </button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <div class="new-popover-wrap">
+            <button class="btn btn-secondary" id="new-btn">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-plus" />
+              </svg>
+              <span class="btn-label">New</span>
+            </button>
+            <div class="new-popover popover" id="new-popover">
+              <button class="popover-item" id="new-folder-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-folder-plus" />
+                </svg>
+                Folder
+              </button>
+              <button class="popover-item" id="new-md-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-file-text" />
+                </svg>
+                Markdown
+              </button>
+              <button class="popover-item" id="new-other-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-file" />
+                </svg>
+                Other
+              </button>
+              <button class="popover-item" id="new-vault-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-lock" />
+                </svg>
+                Vault
+              </button>
+              <button class="popover-item" id="new-s3-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-cloud" />
+                </svg>
+                S3 connection
+              </button>
+            </div>
+          </div>
+          <div class="upload-popover-wrap">
+            <button class="btn btn-secondary" id="upload-btn">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-upload" />
+              </svg>
+              <span class="btn-label">Upload</span>
+            </button>
+            <div class="upload-popover popover" id="upload-popover">
+              <button class="popover-item" id="upload-files-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-file" />
+                </svg>
+                Files
+              </button>
+              <button class="popover-item" id="upload-folder-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-folder" />
+                </svg>
+                Folder
+              </button>
+            </div>
+          </div>
+          <input type="file" id="file-input" multiple style="display: none" />
+          <input type="file" id="folder-input" webkitdirectory multiple style="display: none" />
+          <span class="toolbar-sep" id="toolbar-sep"></span>
+          <button class="btn btn-secondary" id="rename-btn" disabled>
+            <svg class="btn-icon" aria-hidden="true">
+              <use href="#icon-pencil" />
+            </svg>
+            <span class="btn-label">Rename</span>
+          </button>
+          <button class="btn btn-secondary" id="details-btn" disabled>
+            <svg class="btn-icon" aria-hidden="true">
+              <use href="#icon-info" />
+            </svg>
+            <span class="btn-label">Details</span>
+          </button>
+          <div class="options-popover-wrap">
+            <button class="btn btn-secondary" id="options-btn" disabled>
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-more-vertical" />
+              </svg>
+              <span class="btn-label">Options</span>
+            </button>
+            <div class="options-popover popover" id="options-popover">
+              <button class="popover-item hidden" id="options-tool-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-wand" />
+                </svg>
+                <span id="options-tool-label">Edit</span>
+              </button>
+              <button class="popover-item" id="options-move-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-move" />
+                </svg>
+                Move to…
+              </button>
+              <button class="popover-item" id="options-copy-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-copy" />
+                </svg>
+                Copy to…
+              </button>
+              <button class="popover-item" id="options-tags-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-tag" />
+                </svg>
+                Tags
+              </button>
+              <button class="popover-item" id="options-share-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-users" />
+                </svg>
+                Share
+              </button>
+              <button class="popover-item" id="options-download-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-download" />
+                </svg>
+                Download
+              </button>
+            </div>
+          </div>
+          <button class="btn btn-secondary" id="delete-btn" disabled>
+            <svg class="btn-icon" aria-hidden="true">
+              <use href="#icon-trash" />
+            </svg>
+            <span class="btn-label">Delete</span>
+          </button>
+          <div class="toolbar-end">
+            <span id="selection-info" class="text-muted">
+              <span id="selection-count"></span>
+              <span id="selection-size"></span>
+            </span>
+            <div class="list-controls">
+              <button
+                class="btn btn-ghost"
+                id="search-btn"
+                title="Search files"
+                aria-label="Search files"
+              >
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-search" />
+                </svg>
+              </button>
+              <div class="sort-popover-wrap">
+                <button class="btn btn-ghost sort-btn" id="sort-btn" title="Sort">
+                  <span class="sort-btn-label" id="sort-btn-label">Name</span>
+                  <svg class="sort-dir" id="sort-dir" aria-hidden="true">
+                    <use href="#icon-arrow-up" />
+                  </svg>
+                </button>
+                <div class="sort-popover popover" id="sort-popover">
+                  <button class="sort-popover-item" data-sort="name">
+                    <span>Name</span>
+                    <svg class="sort-item-dir" aria-hidden="true">
+                      <use href="#icon-arrow-up" />
+                    </svg>
+                  </button>
+                  <button class="sort-popover-item" data-sort="date">
+                    <span>Date</span>
+                    <svg class="sort-item-dir" aria-hidden="true">
+                      <use href="#icon-arrow-up" />
+                    </svg>
+                  </button>
+                  <button class="sort-popover-item" data-sort="size">
+                    <span>Size</span>
+                    <svg class="sort-item-dir" aria-hidden="true">
+                      <use href="#icon-arrow-up" />
+                    </svg>
+                  </button>
+                  <div class="sort-popover-sep" role="separator"></div>
+                  <button class="sort-popover-item" data-toggle="group" role="menuitemcheckbox">
+                    <span>Folders first</span>
+                    <svg class="sort-item-check" aria-hidden="true">
+                      <use href="#icon-check" />
+                    </svg>
+                  </button>
+                  <button class="sort-popover-item" data-toggle="hidden" role="menuitemcheckbox">
+                    <span>Show hidden files</span>
+                    <svg class="sort-item-check" aria-hidden="true">
+                      <use href="#icon-check" />
+                    </svg>
+                  </button>
+                  <div id="sort-tags">
+                    <div class="sort-popover-sep" role="separator"></div>
+                    <button class="sort-popover-item sort-tags-item" id="sort-tags-btn">
+                      <span>Tags</span>
+                      <span class="sort-tags-count" id="sort-tags-count"></span>
+                      <svg class="sort-item-chevron" aria-hidden="true">
+                        <use href="#icon-chevron-right" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button class="btn btn-ghost" id="view-toggle-btn" title="List view">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-list" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="files-container" id="files-container">
+          <div class="vault-bar hidden" id="vault-bar">
+            <span class="vault-bar-state">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-unlock" />
+              </svg>
+              Unlocked
+            </span>
+            <button class="btn btn-secondary" id="vault-lock-btn" title="Lock this vault">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-lock" />
+              </svg>
+              <span class="btn-label">Lock</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drop view: all a drop link's visitor gets, since they may add files but see nothing -->
+      <div id="drop-view" class="hidden">
+        <div class="topbar">
+          <span class="topbar-title">
+            <img class="topbar-logo" src="/static/favicon.svg" alt="" width="32" height="32" />
+            Drive
+          </span>
+          <div class="header-actions">
+            <button
+              class="btn btn-ghost theme-toggle js-theme-toggle"
+              title="Toggle theme"
+              aria-label="Toggle theme"
+            >
+              <svg class="btn-icon theme-icon-moon" aria-hidden="true">
+                <use href="#icon-moon" />
+              </svg>
+              <svg class="btn-icon theme-icon-sun" aria-hidden="true">
+                <use href="#icon-sun" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="dropbox">
+          <h1 class="dropbox-title" id="dropbox-title">Upload</h1>
+          <button type="button" class="dropbox-zone" id="dropbox-zone">
+            <svg class="dropbox-zone-icon" aria-hidden="true">
+              <use href="#icon-upload" />
+            </svg>
+            <span class="dropbox-zone-label">Choose files</span>
+            <span class="dropbox-zone-hint">or drop them here</span>
+          </button>
+          <input type="file" id="dropbox-input" multiple style="display: none" />
+          <div class="dropbox-list" id="dropbox-list"></div>
+        </div>
+      </div>
+
+      <!-- Editor view -->
+      <div id="editor-view" class="hidden">
+        <div class="view-topbar editor-topbar">
+          <button class="btn btn-ghost" id="editor-back-btn">
+            <svg class="btn-icon" aria-hidden="true">
+              <use href="#icon-arrow-left" />
+            </svg>
+            Back
+          </button>
+          <span class="editor-filename" id="editor-filename"></span>
+          <span class="editor-status" id="editor-status"></span>
+          <div class="editor-options-wrap">
+            <button
+              class="btn btn-ghost"
+              id="editor-options-btn"
+              title="Options"
+              aria-label="Options"
+            >
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-more-vertical" />
+              </svg>
+              <span class="btn-label">Options</span>
+            </button>
+            <div class="editor-options popover" id="editor-options">
+              <button class="popover-item" id="editor-rename-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-pencil" />
+                </svg>
+                Rename
+              </button>
+              <button class="popover-item" id="editor-tags-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-tag" />
+                </svg>
+                Tags
+              </button>
+              <button class="popover-item" id="editor-share-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-users" />
+                </svg>
+                Share
+              </button>
+              <button class="popover-item" id="editor-details-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-info" />
+                </svg>
+                Details
+              </button>
+              <a class="popover-item" id="editor-download-btn" download>
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-download" />
+                </svg>
+                Download
+              </a>
+              <button class="popover-item" id="editor-delete-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-trash" />
+                </svg>
+                Delete
+              </button>
+            </div>
+          </div>
+          <button class="btn btn-secondary" id="editor-save-btn">
+            <svg class="btn-icon" aria-hidden="true">
+              <use href="#icon-save" />
+            </svg>
+            Save
+          </button>
+        </div>
+        <div class="editor-body" id="editor-body">
+          <textarea id="text-editor"></textarea>
+          <div id="md-editor-wrap" class="hidden"></div>
+        </div>
+      </div>
+
+      <!-- Preview view -->
+      <div id="preview-view" class="hidden">
+        <div class="view-topbar preview-topbar">
+          <button class="btn btn-ghost" id="preview-back-btn">
+            <svg class="btn-icon" aria-hidden="true">
+              <use href="#icon-arrow-left" />
+            </svg>
+            Back
+          </button>
+          <span class="file-name" id="preview-filename"></span>
+          <span class="preview-tagslot" id="preview-tagslot"></span>
+          <div class="preview-options-wrap">
+            <button
+              class="btn btn-ghost"
+              id="preview-options-btn"
+              title="Options"
+              aria-label="Options"
+            >
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-more-vertical" />
+              </svg>
+              <span class="btn-label">Options</span>
+            </button>
+            <div class="preview-options popover" id="preview-options">
+              <button class="popover-item" id="preview-rename-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-pencil" />
+                </svg>
+                Rename
+              </button>
+              <button class="popover-item hidden" id="preview-tool-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-wand" />
+                </svg>
+                <span id="preview-tool-label">Edit</span>
+              </button>
+              <button
+                class="popover-item popover-item-check hidden"
+                id="preview-level-btn"
+                role="menuitemcheckbox"
+              >
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-level" />
+                </svg>
+                <span>Smart volume</span>
+                <svg class="popover-item-tick" aria-hidden="true">
+                  <use href="#icon-check" />
+                </svg>
+              </button>
+              <button class="popover-item" id="preview-share-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-users" />
+                </svg>
+                Share
+              </button>
+              <button class="popover-item" id="preview-details-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-info" />
+                </svg>
+                Details
+              </button>
+              <a class="popover-item" id="preview-download-btn" download>
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-download" />
+                </svg>
+                Download
+              </a>
+              <button class="popover-item" id="preview-delete-btn">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-trash" />
+                </svg>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="preview-content-area">
+          <button class="preview-nav-btn" id="preview-prev-btn" title="Previous (←)" disabled>
+            <svg aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+          </button>
+          <button class="preview-nav-btn" id="preview-next-btn" title="Next (→)" disabled>
+            <svg aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+          </button>
+          <div class="preview-body" id="preview-body"></div>
+        </div>
+        <div class="preview-tagbar" id="preview-tagbar"></div>
+      </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal-backdrop" class="modal-backdrop">
+      <div class="modal" id="modal">
+        <h2 id="modal-title"></h2>
+        <input type="text" id="modal-input" placeholder="" />
+        <div id="modal-extra"></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+          <button class="btn btn-primary" id="modal-ok">
+            <svg class="btn-icon" aria-hidden="true">
+              <use href="#icon-check" />
+            </svg>
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editor link popover -->
+    <div id="link-popover" class="link-popover hidden">
+      <a
+        class="link-popover-item"
+        id="link-popover-open"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Open"
+      >
+        <svg class="btn-icon" aria-hidden="true">
+          <use href="#icon-external-link" />
+        </svg>
+        <span class="link-popover-label">Open</span>
+      </a>
+      <button class="link-popover-item" id="link-popover-copy" title="Copy">
+        <svg class="btn-icon" aria-hidden="true">
+          <use href="#icon-copy" />
+        </svg>
+        <span class="link-popover-label">Copy</span>
+      </button>
+      <button class="link-popover-item" id="link-popover-edit" title="Edit">
+        <svg class="btn-icon" aria-hidden="true">
+          <use href="#icon-pencil" />
+        </svg>
+        <span class="link-popover-label">Edit</span>
+      </button>
+      <button class="link-popover-item" id="link-popover-remove" title="Remove">
+        <svg class="btn-icon" aria-hidden="true">
+          <use href="#icon-unlink" />
+        </svg>
+        <span class="link-popover-label">Remove</span>
+      </button>
+    </div>
+
+    <!-- Drop overlay -->
+    <div id="drop-overlay" class="drop-overlay">Drop files to upload</div>
+
+    <!-- Transfer progress -->
+    <div class="progress-stack">
+      <div id="jobs-progress" class="progress-panel">
+        <div class="progress-panel-head">
+          <div class="progress-panel-title" id="jobs-progress-title">Downsizing video…</div>
+          <button type="button" class="progress-panel-cancel" id="jobs-cancel">Cancel</button>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="jobs-bar-fill"></div>
+        </div>
+        <div class="progress-label" id="jobs-label"></div>
+      </div>
+
+      <div id="upload-progress" class="progress-panel">
+        <div class="progress-panel-title" id="upload-progress-title">Uploading…</div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-bar-fill"></div>
+        </div>
+        <div class="progress-label" id="progress-label"></div>
+      </div>
+
+      <div id="download-progress" class="progress-panel">
+        <div class="progress-panel-title" id="download-progress-title">Preparing download…</div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="download-bar-fill"></div>
+        </div>
+        <div class="progress-label" id="download-label"></div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <script src="/static/vendor/toastui-editor-all.min.js"></script>
+    <script src="/static/vendor/tui-color-picker.min.js"></script>
+    <script src="/static/vendor/toastui-editor-plugin-color-syntax.min.js"></script>
+    <script src="/static/vendor/age.min.js"></script>
+    <script src="/static/js/vault.js"></script>
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- top cylinder: full top disk + body (slightly shorter) -->
+  <path d="M5 8 V12 A11 3 0 0 0 27 12 V8 Z" fill="#ea580c" />
+  <ellipse cx="16" cy="8" rx="11" ry="3" fill="#f97316" />
+  <!-- middle cylinder: cut-off band -->
+  <path d="M5 13.5 A11 3 0 0 0 27 13.5 L27 18 A11 3 0 0 1 5 18 Z" fill="#ea580c" />
+  <!-- bottom cylinder: cut-off band -->
+  <path d="M5 19.5 A11 3 0 0 0 27 19.5 L27 24 A11 3 0 0 1 5 24 Z" fill="#ea580c" />
+</svg>

@@ -1,0 +1,11 @@
+node_modules/
+deploy.sh
+.claude/
+srv/
+thumbcache/
+config.json
+prefs.json
+tags.json
+mounts.json
+shares.json
+trash.json

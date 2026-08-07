@@ -1,0 +1,4515 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  color-scheme: light;
+  --bg: #f5f5f5;
+  --surface: #ffffff;
+  --border: #e0e0e0;
+  --hover-bg: #eaeaea;
+  --btn-hover: #f5f5f5;
+  --btn-subtle: #ebebeb;
+  --btn-subtle-hover: #e0e0e0;
+  --text: #1a1a1a;
+  --text-muted: #666;
+  --accent: #ea580c;
+  --accent-hover: #c2410c;
+  --accent-subtle: #fff7ed;
+  --accent-subtle-border: #fed7aa;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --backdrop: rgba(0, 0, 0, 0.35);
+  --toast-bg: #1a1a1a;
+  --toast-text: #ffffff;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-popover: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.2);
+  --popover-gap: 8px; /* every popover sits this far off the control that opens it */
+  --z-sticky: 10;
+  --z-overlay: 100;
+  --z-popover: 200;
+  --z-modal: 300;
+  --z-toast: 500;
+  --page-px: 14px;
+  --btn-px: 12px;
+  --editor-max-w: 740px;
+  --transition: 0.1s;
+}
+
+/* boot.js resolves "system" to a literal theme before paint, so only these two states exist. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #16171a;
+  --surface: #202226;
+  --border: #34373d;
+  /* Both lighten the surface they sit on; in light mode the equivalents darken it. */
+  --hover-bg: #2a2d33;
+  --btn-hover: #2b2e34;
+  --btn-subtle: #2e3138;
+  --btn-subtle-hover: #383c44;
+  --text: #e6e7e9;
+  --text-muted: #9297a0;
+  --accent: #f97316;
+  --accent-hover: #fb923c;
+  --accent-subtle: #2b1a0e;
+  --accent-subtle-border: #6b3410;
+  --danger: #f05252;
+  --danger-hover: #e02424;
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --toast-bg: #2e3138;
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-popover: 0 4px 12px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.7);
+}
+
+@media (min-width: 769px) {
+  :root {
+    --page-px: 22px;
+  }
+}
+
+@media (min-width: 1025px) {
+  :root {
+    --btn-px: 14px;
+  }
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --page-px: 32px;
+  }
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  /* Drops double-tap zoom (and its 300ms tap delay); pinch still zooms. */
+  touch-action: manipulation;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── Login ── */
+#login-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 0 var(--page-px);
+  position: relative;
+}
+
+/* Pre-paint boot state (set by boot.js) reveals login over its .hidden class. */
+html.boot-login #login-view {
+  display: flex !important;
+}
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 36px 32px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.login-card h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+#login-error {
+  color: var(--danger);
+  font-size: 13px;
+  margin-bottom: 10px;
+  display: none;
+}
+
+.login-footer {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  margin-bottom: -8px;
+}
+
+/* Stands in for the login view on a revoked link, where there is nothing to sign into. */
+#share-gone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 0 var(--page-px);
+}
+
+.share-gone-message {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* ── Buttons ── */
+.btn-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px var(--btn-px);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background var(--transition),
+    opacity var(--transition);
+  white-space: nowrap;
+}
+
+@media (min-width: 1025px) {
+  .btn {
+    padding: 8px var(--btn-px);
+  }
+}
+
+.btn-lg {
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+@media (min-width: 1025px) {
+  .btn-lg {
+    padding: 10px 16px;
+  }
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+@media (hover: hover) {
+  .btn-primary:not(:disabled):hover {
+    background: var(--accent-hover);
+  }
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+@media (hover: hover) {
+  .btn-secondary:not(:disabled):hover {
+    background: var(--btn-hover);
+  }
+}
+
+/* Steps away from the surface it sits on: darker in light mode, lighter in dark. */
+.btn-subtle {
+  background: var(--btn-subtle);
+  color: var(--text);
+}
+
+@media (hover: hover) {
+  .btn-subtle:not(:disabled):hover {
+    background: var(--btn-subtle-hover);
+  }
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+@media (hover: hover) {
+  .btn-danger:not(:disabled):hover {
+    background: var(--danger-hover);
+  }
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+@media (hover: hover) {
+  .btn-ghost:not(:disabled):hover {
+    background: var(--btn-hover);
+    color: var(--text);
+  }
+}
+
+.btn-ghost.active,
+.btn-ghost.active:hover {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Inputs ── */
+/* Transparent, not `field` — color-scheme:dark would otherwise paint a grey fill over the surface. */
+.login-card input,
+.modal input,
+.modal select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.login-card input:focus,
+.modal input:focus,
+.modal select:focus {
+  border-color: var(--accent);
+}
+
+/* The native chevron sits flush against the border; ours is inset to the field's own padding. */
+.modal select {
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 10px 6px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+/* The arrow is a background image, so its color can't follow currentColor. */
+:root[data-theme="dark"] .modal select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239297a0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.login-card input {
+  margin-bottom: 12px;
+}
+
+/* Autofill's fill can't be unset, only covered by an inset shadow the size of the field. */
+.login-card input:-webkit-autofill {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 100px var(--surface) inset;
+  caret-color: var(--text);
+}
+
+/* A button, not a checkbox: nothing here submits, so aria-checked carries the state. */
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.switch[aria-checked="true"] {
+  color: var(--text);
+}
+
+.switch-track {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background var(--transition);
+}
+
+.switch[aria-checked="true"] .switch-track {
+  background: var(--accent);
+}
+
+/* White in both themes: the knob has to read against the grey track and against the accent. */
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-md);
+  transition: transform var(--transition);
+}
+
+.switch[aria-checked="true"] .switch-track::after {
+  transform: translateX(14px);
+}
+
+/* ── Layout ── */
+#app-view {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+#browser-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px var(--page-px);
+  display: none;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+}
+
+@media (min-width: 769px) {
+  .topbar {
+    display: flex;
+  }
+}
+
+@media (min-width: 1025px) {
+  .topbar {
+    padding-top: 13px;
+    padding-bottom: 13px;
+  }
+}
+
+.topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--text);
+  text-decoration: none;
+  margin-right: auto;
+}
+
+.topbar-logo {
+  display: block;
+}
+
+/* Gap mirrors .list-controls so these sit like the toolbar's controls under them. */
+.header-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+
+@media (min-width: 769px) {
+  .header-actions {
+    gap: 4px;
+  }
+}
+
+/* ── Breadcrumbs ── */
+.breadcrumb-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  padding: 8px var(--page-px) 0;
+}
+
+.breadcrumb-logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+@media (min-width: 769px) {
+  .breadcrumb-logo {
+    display: none;
+  }
+}
+
+.breadcrumb-logo img {
+  display: block;
+}
+
+/* Stands in for the topbar's copy at this width; pulled flush like the controls under it. */
+.breadcrumb-actions {
+  margin-right: calc(-1 * var(--btn-px));
+}
+
+.breadcrumb-actions .btn-label {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .breadcrumb-actions {
+    display: none;
+  }
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Padding + negative margin: a safe zone so a drop-target highlight isn't clipped. */
+  padding: 0 6px;
+  margin: 0 -6px;
+  font-size: 14px;
+  line-height: 1.4;
+  flex-wrap: nowrap;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 769px) {
+  .breadcrumb {
+    flex-wrap: wrap;
+  }
+}
+
+.breadcrumb a,
+.breadcrumb span.sep {
+  align-items: center;
+  padding: 5px 0;
+}
+
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .breadcrumb a:hover {
+    text-decoration: underline;
+  }
+}
+
+.breadcrumb span.sep {
+  color: var(--text-muted);
+}
+
+/* Only the deepest breadcrumbs show on mobile */
+.breadcrumb a,
+.breadcrumb span.sep {
+  display: none;
+}
+
+.breadcrumb a:nth-last-child(3),
+.breadcrumb span.sep:nth-last-child(2) {
+  display: block;
+}
+
+.breadcrumb a:nth-last-child(3) {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.breadcrumb span.sep:nth-last-child(2) {
+  flex-shrink: 0;
+}
+
+@media (min-width: 769px) {
+  .breadcrumb a,
+  .breadcrumb span.sep,
+  .breadcrumb a:nth-last-child(3),
+  .breadcrumb span.sep:nth-last-child(2) {
+    display: inline-flex;
+  }
+  .breadcrumb a:nth-last-child(3) {
+    overflow: visible;
+  }
+}
+
+/* The open folder's crumb: inert text at the root, its own menu button anywhere below. */
+.breadcrumb .current {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 5px 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--text-muted);
+}
+
+.breadcrumb button.current {
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .breadcrumb button.current:hover {
+    color: var(--text);
+  }
+}
+
+.breadcrumb .crumb-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 769px) {
+  .breadcrumb .crumb-name {
+    overflow: visible;
+  }
+}
+
+.breadcrumb .crumb-chevron {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  margin-top: 1px;
+}
+
+/* Anchored to the row: the breadcrumb clips its overflow. JS sets left/top to track the crumb. */
+.crumb-popover {
+  left: var(--page-px);
+  min-width: 150px;
+}
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px var(--page-px) 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.toolbar .btn-label {
+  display: none;
+}
+
+@media (min-width: 1025px) {
+  .toolbar .btn-label {
+    display: inline;
+  }
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.toolbar-end {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+@media (min-width: 769px) {
+  .toolbar-end {
+    width: auto;
+    flex-grow: 1;
+    justify-content: space-between;
+    /* On the last button, this gap would vanish when a share link hides that button. */
+    margin-left: 8px;
+  }
+}
+
+.list-controls {
+  display: flex;
+  margin: -6px calc(-1 * var(--btn-px)) -6px 0;
+}
+
+@media (min-width: 769px) {
+  .list-controls {
+    gap: 4px;
+    margin: 0;
+  }
+}
+
+/* ── Popover (shared) ── */
+.popover {
+  display: none;
+  position: absolute;
+  top: calc(100% + var(--popover-gap));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-popover);
+  z-index: var(--z-popover);
+  padding: 4px 0;
+}
+
+.popover.open {
+  display: block;
+}
+
+.popover-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .popover-item:hover {
+    background: var(--accent-subtle);
+    color: var(--accent);
+  }
+}
+
+/* Listed after :hover so it wins at equal specificity; :hover still matches a disabled button. */
+.popover-item:disabled,
+.popover-item:disabled:hover {
+  background: none;
+  color: var(--text);
+  cursor: default;
+  opacity: 0.4;
+}
+
+.popover-item .btn-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+/* A menu item that toggles rather than acts: the tick trails the label and holds its own gutter,
+   so turning it on and off doesn't shift the row. */
+.popover-item-check .popover-item-tick {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  color: var(--accent);
+  visibility: hidden;
+}
+
+.popover-item-check.checked .popover-item-tick {
+  visibility: visible;
+}
+
+.popover-item-check.checked {
+  color: var(--accent);
+}
+
+.popover-item-check.checked .btn-icon {
+  color: var(--accent);
+}
+
+@media (hover: hover) {
+  .popover-item:hover .btn-icon {
+    color: var(--accent);
+  }
+}
+
+.popover-item:disabled .btn-icon,
+.popover-item:disabled:hover .btn-icon {
+  color: var(--text-muted);
+}
+
+/* ── Sort popover ── */
+.sort-popover-wrap {
+  position: relative;
+}
+
+.sort-btn {
+  position: relative;
+}
+
+.sort-btn .sort-btn-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sort-btn .sort-dir {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* The tag filter lost its own toolbar button, so the button that now holds tags carries the cue. */
+.sort-btn.filtering::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.sort-dir.desc,
+.sort-popover-item.desc .sort-item-dir {
+  transform: rotate(180deg);
+}
+
+.sort-popover {
+  right: 0;
+  min-width: 170px;
+}
+
+.sort-popover-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sort-popover-item.active {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* One row per field: the arrow marks the field in use and which way it currently runs. */
+.sort-popover-item .sort-item-dir {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--accent);
+  visibility: hidden;
+}
+
+.sort-popover-item.active .sort-item-dir {
+  visibility: visible;
+}
+
+.sort-popover-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+}
+
+.sort-popover-item .sort-item-check {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--accent);
+  visibility: hidden;
+}
+
+.sort-popover-item.active .sort-item-check {
+  visibility: visible;
+}
+
+/* Label takes the slack, so the count and chevron stay paired at the right edge. */
+.sort-tags-item > span:first-child {
+  flex: 1;
+}
+
+.sort-tags-item .sort-tags-count {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.sort-tags-item .sort-item-chevron {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+@media (hover: hover) {
+  .sort-popover-item:hover {
+    background: var(--accent-subtle);
+    color: var(--accent);
+  }
+}
+
+#selection-info {
+  display: flex;
+  gap: 14px;
+  min-width: 78px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#selection-size:empty {
+  display: none;
+}
+
+.toolbar-sep {
+  width: 1px;
+  background: var(--border);
+  align-self: stretch;
+  margin: 0 4px;
+}
+
+/* ── New popover ── */
+.new-popover-wrap {
+  position: relative;
+}
+
+.new-popover {
+  left: 0;
+  min-width: 160px;
+}
+
+/* ── Upload popover ── */
+.upload-popover-wrap {
+  position: relative;
+}
+
+.upload-popover {
+  left: 0;
+  min-width: 160px;
+}
+
+/* ── Options popover ── */
+.options-popover-wrap {
+  position: relative;
+}
+
+.options-popover {
+  left: 0;
+  min-width: 170px;
+}
+
+/* Its button sits near the right edge here, so hanging left off it would run off screen. */
+@media (max-width: 768px) {
+  .options-popover {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+/* ── File list ── */
+/* Rows: the vault bar, then the listing — without this both auto rows split the free height. */
+.files-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px var(--page-px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .files-container {
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Forces 1px of scroll range so iOS Safari rubber-bands even on short lists. */
+  .files-container::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: calc(100% + 1px);
+    pointer-events: none;
+  }
+}
+
+/* List view */
+.file-list {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  /* Not hidden: a scroll container here overflows its grid row, eating the container's bottom pad. */
+  overflow: clip;
+  border: 1px solid var(--border);
+  /* Auto margins centre it but suppress the grid's stretch, so width must be explicit. */
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  background: var(--surface);
+  transition: background var(--transition);
+}
+
+@media (min-width: 1025px) {
+  .file-item {
+    gap: 12px;
+  }
+}
+
+.file-item:last-child {
+  border-bottom: none;
+}
+
+@media (hover: hover) {
+  .file-item:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.file-item.selected {
+  background: var(--accent-subtle);
+}
+
+.file-item.selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+
+.file-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  width: 26px;
+  text-align: center;
+}
+
+.file-item .file-media {
+  width: 26px;
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-item .file-media .file-icon {
+  width: auto;
+}
+
+.file-item .file-thumb {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 1.5px;
+}
+
+.file-item .thumb-wrap {
+  position: relative;
+  display: flex;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.file-item .thumb-badge {
+  position: absolute;
+  left: -3px;
+  bottom: -3px;
+  font-size: 12px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+  pointer-events: none;
+}
+
+.file-name {
+  flex: 1;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 769px) {
+  .file-name {
+    font-size: 14px;
+  }
+}
+
+.file-tags {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  --tag-ring: var(--surface); /* what the dots are ringed in: whatever sits behind them */
+}
+
+@media (hover: hover) {
+  .file-item:hover .file-tags {
+    --tag-ring: var(--hover-bg);
+  }
+}
+
+.file-item.selected .file-tags {
+  --tag-ring: var(--accent-subtle);
+}
+
+/* Ringed on every dot, not just the overlapped ones: on a card the ring is what makes one read. */
+.file-tag-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tag-color);
+  box-shadow: 0 0 0 1.5px var(--tag-ring);
+}
+
+/* Overlapped to spend as little of the row as possible; the ring keeps the two dots apart. */
+.file-tag-dot + .file-tag-dot {
+  margin-left: -2px;
+}
+
+.file-meta {
+  display: flex;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+@media (min-width: 769px) {
+  .file-meta {
+    font-size: 13px;
+    gap: 24px;
+    margin-left: 12px;
+  }
+}
+
+/* A phone has no room for all three, and a track's length outranks its date and size. */
+.file-meta-audio .file-meta-size,
+.file-meta-audio .file-meta-date {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .file-meta-audio .file-meta-size,
+  .file-meta-audio .file-meta-date {
+    display: inline;
+  }
+}
+
+/* Right-aligned against a reserved width so the two numbers read as columns, not as text. */
+.file-duration {
+  min-width: 2rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.file-meta-size {
+  min-width: 3.25rem;
+  text-align: right;
+}
+
+.file-meta-date {
+  min-width: 4.5rem;
+  text-align: right;
+}
+
+@media (min-width: 769px) {
+  .file-meta-date {
+    min-width: 8.75rem;
+  }
+}
+
+.file-meta-time {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .file-meta-time {
+    display: inline;
+    margin-left: 5px;
+  }
+}
+
+/* Grid view */
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+@media (min-width: 480px) {
+  .file-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 769px) {
+  .file-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .file-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.file-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: center;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  transition: background var(--transition);
+  min-width: 0;
+}
+
+@media (min-width: 769px) {
+  .file-card {
+    padding: 10px;
+  }
+}
+
+@media (hover: hover) {
+  .file-card:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.file-card.selected {
+  background: var(--accent-subtle);
+  border-color: var(--accent-subtle-border);
+}
+
+/* 4:3 slot via the padding hack; children are absolutely positioned within it. */
+.file-card-media {
+  position: relative;
+  width: 100%;
+  padding-top: 75%;
+}
+
+/* Fills the 4:3 slot so a badged thumbnail keeps its own aspect ratio. */
+.file-card-media .thumb-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-card-media .thumb-badge {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  font-size: 20px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  pointer-events: none;
+}
+
+.file-card-media .thumb-badge.thumb-duration {
+  left: 4px;
+  bottom: 4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  filter: none;
+}
+
+/* Over the thumbnail's corner, so tagging a file never changes the card's height. */
+.file-card-media .file-tags {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  --tag-ring: rgba(0, 0, 0, 0.5); /* the thumbnail behind them is any colour; a dark ring reads */
+}
+
+.file-card-media .file-tag-dot {
+  width: 9px;
+  height: 9px;
+}
+
+.file-card .file-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  width: auto;
+}
+
+@media (min-width: 769px) {
+  .file-card .file-icon {
+    font-size: 70px;
+  }
+}
+
+.file-card .file-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* Flex-centered inside the definite-size thumb wrapper so % sizes resolve. */
+.file-card-media .thumb-wrap .file-thumb {
+  position: static;
+  margin: 0;
+}
+
+/* Keep the fallback icon in flow so the shrink-to-fit wrapper gets width from it. */
+.file-card-media .thumb-wrap .file-icon {
+  position: static;
+}
+
+.file-card .file-name {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* ── Theme toggle ── */
+/* The hover fill flashes when the toggle repaints under a still-hovering cursor. */
+@media (hover: hover) {
+  .login-footer .btn-ghost.theme-toggle:not(:disabled):hover {
+    background: transparent;
+    color: var(--text);
+  }
+}
+
+.theme-toggle .theme-icon-sun,
+.theme-toggle .theme-label-light {
+  display: none;
+}
+
+[data-theme="dark"] .theme-toggle .theme-icon-moon,
+[data-theme="dark"] .theme-toggle .theme-label-dark {
+  display: none;
+}
+
+[data-theme="dark"] .theme-toggle .theme-icon-sun {
+  display: block;
+}
+
+[data-theme="dark"] .theme-toggle .theme-label-light {
+  display: inline;
+}
+
+/* ── Upload zone ── */
+.drop-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(234, 88, 12, 0.08);
+  border: 3px dashed var(--accent);
+  z-index: var(--z-overlay);
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--accent);
+  pointer-events: none;
+}
+
+.drop-overlay.active {
+  display: flex;
+}
+
+/* ── Drag to move ── */
+.drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-toast);
+  pointer-events: none;
+  max-width: 240px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.95;
+}
+
+body.dragging {
+  cursor: grabbing;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.file-item.drag-armed,
+.file-card.drag-armed {
+  opacity: 0.6;
+}
+
+.file-item.drop-target,
+.file-card.drop-target {
+  background: var(--accent-subtle);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+/* First/last rows round to the list's clipped corners so the ring isn't notched there. */
+.file-list .file-item.drop-target:first-child {
+  border-top-left-radius: calc(var(--radius-lg) - 1px);
+  border-top-right-radius: calc(var(--radius-lg) - 1px);
+}
+.file-list .file-item.drop-target:last-child {
+  border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+  border-bottom-right-radius: calc(var(--radius-lg) - 1px);
+}
+
+#breadcrumb a.drop-target {
+  background: var(--accent-subtle);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+  padding: 5px 6px;
+  margin: 0 -6px;
+}
+
+/* ── Transfer progress ── */
+.progress-stack {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: var(--z-popover);
+  pointer-events: none;
+}
+
+.progress-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popover);
+  padding: 14px 16px;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  display: none;
+}
+
+.progress-panel.active {
+  display: block;
+}
+
+.progress-panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+/* Fixed line-height: a filename glyph that falls back to a taller font would resize the panel. */
+.progress-panel-title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.progress-panel-head .progress-panel-title {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+/* The stack ignores clicks so it never blocks the listing; only this button takes them back. */
+.progress-panel-cancel {
+  pointer-events: auto;
+  flex: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.progress-panel-cancel:hover {
+  color: var(--text);
+}
+
+.progress-bar-bg {
+  background: var(--bg);
+  border-radius: 3px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  background: var(--accent);
+  height: 100%;
+  width: 0%;
+  transition: width 0.2s;
+  border-radius: 3px;
+}
+
+/* Zip streams have no Content-Length, so the download bar can only be indeterminate. */
+.progress-bar-fill.indeterminate {
+  width: 40%;
+  transition: none;
+  animation: progress-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.progress-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ── Modal ── */
+.modal-backdrop {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--backdrop);
+  z-index: var(--z-modal);
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-backdrop.active {
+  display: flex;
+}
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 24px;
+  width: calc(100% - 40px);
+  max-width: 400px;
+}
+
+/* For dialogs listing paths, where 400px would ellipsize every row. */
+.modal.modal-wide {
+  max-width: 560px;
+}
+
+.modal h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* margin-top owns the gap above the actions; content margins ≤20px collapse into it. */
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.confirm-message {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Reached from a menu, so a dialog acting on one file names it under the title. */
+.dialog-subject {
+  margin: -6px 0 14px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.detail-row:first-child {
+  padding-top: 0;
+}
+.detail-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.detail-label {
+  color: var(--text-muted);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  font-size: 13px;
+  text-align: right;
+  word-break: break-word;
+}
+/* Unlike the compact file list, detail rows have room to always show the time, even on mobile. */
+.detail-value .file-meta-time {
+  display: inline;
+  margin-left: 5px;
+}
+
+.detail-row input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  max-width: 65%;
+  margin: 0 0 0 auto;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+}
+
+/* margin-left:auto right-aligns the toggle + value/input as one group, like a bare .detail-value. */
+.detail-edit-toggle {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.detail-edit-toggle:hover {
+  color: var(--accent);
+}
+/* Listed after :hover so it wins at equal specificity; :hover still matches a disabled button. */
+.detail-edit-toggle:disabled,
+.detail-edit-toggle:disabled:hover {
+  color: var(--text-muted);
+  cursor: default;
+  opacity: 0.4;
+}
+
+/* Pinned to the name field's width; margin-left:0 beats .detail-row input so it hugs the toggle.
+   1px smaller than other inputs so the datetime segments + calendar icon fit the pinned width. */
+.detail-row .detail-date-input {
+  flex: 1;
+  max-width: 65%;
+  margin-left: 0;
+  font-size: 12px;
+}
+
+/* stretch, not center: it makes the field, select and button one height without matching metrics. */
+.share-new {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* Beats .modal input, whose full width and 14px text would break this row. */
+/* min-width floors the field so a narrow phone squeezes the mode select instead. */
+.modal .share-new-label {
+  flex: 1 1 140px;
+  min-width: 70px;
+  width: auto;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.share-new-create {
+  padding: 7px 10px;
+  flex-shrink: 0;
+}
+
+/* Beats .modal select, whose full width and 14px text would break this row. */
+.modal .share-new-mode {
+  width: auto;
+  min-width: 0;
+  padding: 7px 30px 7px 10px;
+  font-size: 13px;
+  background: var(--surface)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 10px center;
+  background-size: 10px 6px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+/* The arrow is a background image, so its color can't follow currentColor. */
+:root[data-theme="dark"] .modal .share-new-mode {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239297a0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Says what the chosen mode hands over, while there is still time to choose another. */
+.share-mode-note {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.share-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* Fixed, so the label field starts at the same place whichever mode the row is. Fits the widest
+   system font's "View & edit" (72px on Segoe UI). */
+.share-link-mode {
+  width: 76px;
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+/* Beats .modal input's width: the label fills what the mode and buttons leave. */
+.modal .share-link-label {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  padding: 7px 10px;
+  font-size: 13px;
+  margin-right: 4px;
+}
+
+.share-link-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.share-link-btn:hover {
+  color: var(--accent);
+}
+
+.share-link-confirm {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.share-link.confirming > :not(.share-link-confirm) {
+  display: none;
+}
+.share-link.confirming .share-link-confirm {
+  display: flex;
+}
+/* Sized like the row's label field so replacing the link row doesn't change its height. */
+.share-link-confirm .btn {
+  margin-left: auto;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+.share-link-confirm .btn + .btn {
+  margin-left: 0;
+}
+
+@media (max-width: 480px) {
+  .share-link-confirm {
+    flex-wrap: wrap;
+  }
+}
+
+/* Capped so a tall form still leaves the modal's action buttons on screen. */
+.form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 40vh;
+  overflow-y: auto;
+  padding-right: 10px;
+  margin-bottom: 16px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.modal .form-input {
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.form-warning {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.form-warning strong {
+  color: var(--danger);
+}
+
+/* ── Tags ── */
+.tag-dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--tag-color);
+}
+
+.tag-editor {
+  min-width: 0;
+}
+
+/* Wraps the opener alone, so the menu floated off it lands on the button's own box. */
+.tag-editor-compact {
+  position: relative;
+}
+
+.tag-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 11px;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.tag-add svg {
+  width: 12px;
+  height: 12px;
+}
+
+@media (hover: hover) {
+  .tag-add:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+/* The compact editor's stand-in for chips: overlapped, so the button costs no width it can save. */
+.tag-dots {
+  display: inline-flex;
+  align-items: center;
+}
+
+.tag-dots .tag-dot + .tag-dot {
+  margin-left: -3px;
+  box-shadow: 0 0 0 1.5px var(--tag-ring, var(--surface));
+}
+
+/* Floated off the editor, so opening it doesn't stretch the row or bar it sits in. */
+.tag-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + var(--popover-gap));
+  right: 0;
+  z-index: var(--z-popover);
+  width: 200px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-popover);
+}
+
+.tag-editor.menu-open .tag-menu {
+  display: block;
+}
+
+/* A dialog has the room to hold the same menu inline, with no opener to float it off. */
+.tag-editor-inline .tag-menu {
+  display: block;
+  position: static;
+  width: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+}
+
+.tag-menu-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+/* Only the popover's field stays compact in a dialog; the inline one is a dialog field, so .modal
+   input sizes it. */
+.modal .tag-editor-compact .tag-menu-input {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.tag-menu-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Negative margins absorb the rows' own padding, so the menu's 14px measures to their text. */
+.tag-menu-list {
+  max-height: 190px;
+  margin: -6px -8px;
+  overflow-y: auto;
+}
+
+/* Same absorption inline, so the dialog's own padding and gaps measure to the rows' text. */
+.tag-editor-inline .tag-menu-list {
+  max-height: 260px;
+  margin: -8px -10px;
+}
+
+.tag-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+@media (hover: hover) {
+  .tag-menu-item:hover {
+    background: var(--hover-bg);
+  }
+}
+
+/* A dialog isn't rationing space the way the popover is, so the rows read at its own text size. */
+.tag-editor-inline .tag-menu-item {
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.tag-menu-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-menu-plus {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.tag-menu-check {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--accent);
+  visibility: hidden;
+}
+
+/* The dialog's rows read at its own size, so the tick grows with them. */
+.tag-editor-inline .tag-menu-check {
+  width: 17px;
+  height: 17px;
+}
+
+.tag-menu-item.active .tag-menu-check {
+  visibility: visible;
+}
+
+.tag-menu-empty {
+  padding: 6px 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.3em;
+}
+
+/* Follows the inline rows' padding, so both start at the same edge. */
+.tag-editor-inline .tag-menu-empty {
+  padding: 8px 10px;
+}
+
+/* Sits outside the list, so the menu's padding already insets it; only the gap below is its own. */
+.tag-menu > .tag-menu-empty {
+  padding: 0 0 12px;
+}
+
+.tag-manager-new {
+  display: flex;
+  gap: 8px;
+}
+
+/* Beats .modal input, whose full width and margins would break this row. */
+.modal .tag-manager-input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.tag-manager-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 18px 0 4px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.tag-manager-clear {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+/* Padded to take the rows' negative margins, so their highlight can't scroll the list sideways. */
+.tag-manager-list {
+  max-height: 260px;
+  margin: 0 -8px;
+  padding: 0 8px;
+  overflow-y: auto;
+}
+
+.tag-manager-empty {
+  padding: 14px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Hangs into the list's padding, so the highlight clears the text at both ends. */
+.tag-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -8px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+@media (hover: hover) {
+  .tag-row:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.tag-row-color {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--tag-color);
+  cursor: pointer;
+}
+
+.tag-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+
+.tag-row-main.active {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.tag-row-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-row-count {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.tag-row-check {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--accent);
+  visibility: hidden;
+}
+
+.tag-row-main.active .tag-row-check {
+  visibility: visible;
+}
+
+.tag-row-btn {
+  display: flex;
+  flex-shrink: 0;
+  padding: 5px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* Both buttons pad inward, so the row's gap reads twice as wide between them as beside them. */
+.tag-row-btn + .tag-row-btn {
+  margin-left: -6px;
+}
+
+.tag-row-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* The row already highlights on hover, so the button marks itself by colour alone. */
+@media (hover: hover) {
+  .tag-row-btn:hover {
+    color: var(--text);
+  }
+
+  .tag-row-btn-danger:hover {
+    color: var(--danger);
+  }
+}
+
+/* The manager owns the only modal, so deleting confirms in the row. It lies over the row's
+   content rather than replacing it, so the list can't change height while confirming. */
+.tag-row-confirm {
+  position: absolute;
+  inset: 0 8px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.tag-row.confirming > :not(.tag-row-confirm) {
+  visibility: hidden;
+}
+
+.tag-row.confirming .tag-row-confirm {
+  display: flex;
+}
+
+.tag-row-confirm span {
+  flex: 1;
+}
+
+.tag-row-confirm .btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Lies over the row like the delete confirm, for the same reason: the list keeps its height. */
+.tag-row-rename {
+  position: absolute;
+  inset: 0 8px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-row.renaming > :not(.tag-row-rename) {
+  visibility: hidden;
+}
+
+.tag-row.renaming .tag-row-rename {
+  display: flex;
+}
+
+.tag-row-rename .btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Beats .modal input, whose full width and 14px text would break this row. */
+.modal .tag-rename-input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+/* ── File search ── */
+.file-search-bar {
+  position: relative;
+}
+
+.file-search-bar .file-search-icon {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* Beats .modal input: the icon needs the room its default padding would fill with text. */
+.modal .file-search-input {
+  width: 100%;
+  margin: 0;
+  padding: 9px 12px 9px 34px;
+}
+
+.file-search-scope {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.file-search-scope-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Fixed, not max: otherwise the dialog resizes under the cursor as the hit count changes. */
+.file-search-results {
+  height: 300px;
+  max-height: 36vh;
+  margin: 12px -8px 0;
+  padding: 0 8px;
+  overflow-y: auto;
+}
+
+/* Dimmed, not emptied: the last answer stays readable while the next query is in flight. */
+.file-search-results.stale {
+  opacity: 0.5;
+}
+
+.file-search-note {
+  padding: 4px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Hangs into the list's padding so the highlight clears the text at both ends. */
+.search-hit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% + 16px);
+  margin: 0 -8px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.search-hit.current {
+  background: var(--accent-subtle);
+}
+
+@media (hover: hover) {
+  .search-hit:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.search-hit-icon {
+  flex-shrink: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.search-hit-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-hit-name,
+.search-hit-folder {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.search-hit-name {
+  font-size: 14px;
+}
+
+.search-hit-name mark {
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.search-hit-folder {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.search-hit-meta {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* ── Editor ── */
+#editor-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.view-topbar {
+  padding: 10px var(--page-px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (min-width: 769px) {
+  .view-topbar {
+    gap: 10px;
+  }
+}
+
+.editor-topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+#editor-back-btn {
+  margin-left: calc(-1 * var(--btn-px));
+}
+
+.editor-filename {
+  font-size: 14px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-status {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.editor-options-wrap {
+  position: relative;
+}
+
+/* Icon-only here, so its side padding reads as gap; pull it back into its neighbours. */
+@media (max-width: 768px) {
+  #editor-options-btn {
+    margin-left: -4px;
+    margin-right: -4px;
+  }
+}
+
+#editor-options-btn .btn-label {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  #editor-options-btn .btn-label {
+    display: inline;
+  }
+}
+
+.editor-options {
+  right: 0;
+  min-width: 160px;
+}
+
+@media (max-width: 768px) {
+  .editor-options {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+.editor-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Plain text editor */
+#text-editor {
+  width: 100%;
+  max-width: var(--editor-max-w);
+  align-self: center;
+  flex: 1;
+  border: none;
+  outline: none;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: none;
+  background: var(--surface);
+}
+
+/* Markdown editor (Toast UI) */
+#md-editor-wrap {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--editor-max-w);
+  margin: 0 auto;
+}
+
+#md-editor-wrap .toastui-editor-defaultUI {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: none;
+}
+
+#md-editor-wrap .toastui-editor-main {
+  flex: 1;
+}
+
+/* A view-only link keeps the rendered document but loses the tools that can't do anything. */
+#md-editor-wrap.md-readonly .toastui-editor-toolbar {
+  display: none;
+}
+
+.toastui-editor-toolbar {
+  height: auto !important;
+  background-color: var(--surface) !important;
+}
+
+.toastui-editor-defaultUI-toolbar {
+  padding: 0 var(--page-px) !important;
+  background-color: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  height: auto !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+}
+
+.toastui-editor-defaultUI-toolbar::-webkit-scrollbar {
+  display: none !important;
+}
+
+.toastui-editor-toolbar-group {
+  margin-left: -8px !important;
+  flex-shrink: 0 !important;
+}
+
+/* On touch screens the vendor's button tooltips linger after tap. */
+@media (hover: none) {
+  .toastui-editor-tooltip {
+    display: none !important;
+  }
+}
+
+/* Vendor's Helvetica stack lands on Nimbus Sans in Firefox/Linux, whose metrics shift list markers. */
+.toastui-editor-contents {
+  font-family: var(--font-sans) !important;
+}
+
+.toastui-editor-ww-container {
+  background-color: var(--surface) !important;
+}
+
+.toastui-editor-main-container,
+.toastui-editor-contents p,
+.toastui-editor-contents h1,
+.toastui-editor-contents h2,
+.toastui-editor-contents h3,
+.toastui-editor-contents h4,
+.toastui-editor-contents h5,
+.toastui-editor-contents h6,
+.toastui-editor-contents ul,
+.toastui-editor-contents ol,
+.toastui-editor-contents table {
+  color: var(--text) !important;
+}
+
+.toastui-editor-contents del,
+.toastui-editor-contents blockquote,
+.toastui-editor-contents blockquote p,
+.toastui-editor-contents blockquote ul,
+.toastui-editor-contents blockquote ol {
+  color: var(--text-muted) !important;
+}
+
+.toastui-editor-contents blockquote,
+.toastui-editor-contents table,
+.toastui-editor-contents table td,
+.toastui-editor-contents table th {
+  border-color: var(--border) !important;
+}
+
+/* Header cells keep vendor's dark fill in both themes; re-assert white over the `p` rule above. */
+.toastui-editor-contents table th,
+.toastui-editor-contents table th p {
+  color: #fff !important;
+}
+
+.toastui-editor-contents a,
+.toastui-editor-contents a:hover {
+  color: var(--accent) !important;
+}
+
+.toastui-editor-contents > ul:last-child,
+.toastui-editor-contents > ol:last-child {
+  margin-bottom: 0 !important;
+}
+
+.toastui-editor-ww-container .toastui-editor-contents {
+  font-size: 15px !important;
+}
+
+#text-editor,
+.toastui-editor-ww-container .toastui-editor-contents {
+  padding: 14px 20px 8rem !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 769px) {
+  #text-editor,
+  .toastui-editor-ww-container .toastui-editor-contents {
+    padding: 14px var(--page-px) 10rem !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  #text-editor,
+  .toastui-editor-ww-container .toastui-editor-contents {
+    padding: 20px var(--page-px) 12rem !important;
+  }
+}
+
+.toastui-editor-contents code {
+  color: var(--text) !important;
+  background-color: var(--bg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 6px 6px 2px !important;
+  font-size: 0.9em !important;
+}
+
+.toastui-editor-contents pre {
+  background-color: var(--bg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.toastui-editor-contents pre code {
+  color: var(--text) !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.toastui-editor-contents a:hover {
+  cursor: pointer;
+}
+
+.link-popover {
+  position: fixed;
+  z-index: var(--z-popover);
+  display: flex;
+  padding: 4px;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+}
+
+.link-popover-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (min-width: 769px) {
+  .link-popover-item {
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .link-popover-label {
+    display: none;
+  }
+}
+
+.link-popover-item .btn-icon {
+  width: 15px;
+  height: 15px;
+  color: var(--text-muted);
+}
+
+@media (hover: hover) {
+  .link-popover-item:hover {
+    background: var(--accent-subtle);
+    color: var(--accent);
+  }
+
+  .link-popover-item:hover .btn-icon {
+    color: var(--accent);
+  }
+}
+
+.link-edit-field {
+  display: block;
+}
+.link-edit-field + .link-edit-field {
+  margin-top: 16px;
+}
+
+.link-edit-field span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Clipped to the padding box: the border ring would otherwise reveal the icon sprite's neighbour. */
+.toastui-editor-defaultUI-toolbar button {
+  border-color: transparent !important;
+  background-clip: padding-box !important;
+  margin: 7px 2px !important;
+}
+
+@media (hover: hover) {
+  .toastui-editor-defaultUI-toolbar button:hover {
+    background-color: var(--btn-hover) !important;
+    border-color: var(--border) !important;
+  }
+}
+
+/* Vendor ships one dark-glyph sprite, so the whole button is inverted to light its icon up. */
+[data-theme="dark"] .toastui-editor-toolbar-icons {
+  filter: invert(1);
+}
+
+/* Inverted along with the button above: black paints as white, and transparent stays invisible. */
+@media (hover: hover) {
+  [data-theme="dark"] .toastui-editor-defaultUI-toolbar button:hover {
+    background-color: rgba(0, 0, 0, 0.06) !important;
+    border-color: rgba(0, 0, 0, 0.15) !important;
+  }
+}
+
+.toastui-editor-toolbar-icons.editor-undo,
+.toastui-editor-toolbar-icons.editor-redo {
+  background-size: 18px 18px !important;
+  background-position: center !important;
+}
+
+.toastui-editor-toolbar-icons.editor-undo {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23585858' d='M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z'/%3E%3C/svg%3E") !important;
+}
+
+.toastui-editor-toolbar-icons.editor-redo {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23585858' d='M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z'/%3E%3C/svg%3E") !important;
+}
+
+.toastui-editor-toolbar-divider {
+  background-color: var(--border) !important;
+}
+
+@media (min-width: 769px) {
+  .toastui-editor-toolbar-icons.indent,
+  .toastui-editor-toolbar-icons.outdent {
+    display: none !important;
+  }
+}
+
+.toastui-editor-toolbar-icons.more {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='%23585858'%3E%3Ccircle cx='5' cy='12' r='2'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Ccircle cx='19' cy='12' r='2'/%3E%3C/g%3E%3C/svg%3E")
+    center / 18px 18px no-repeat !important;
+  margin-left: 8px !important;
+}
+
+.toastui-editor-dropdown-toolbar {
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-md) !important;
+  height: auto !important;
+  padding: 0 4px !important;
+}
+
+.toastui-editor-dropdown-toolbar .toastui-editor-toolbar-group {
+  margin-left: 0 !important;
+}
+
+/* Positioned with JS */
+.toastui-editor-popup {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Link popup only — styled to match our own modal (see .modal). */
+.toastui-editor-popup-add-link {
+  width: 320px !important;
+  max-width: calc(100vw - 28px) !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-popover) !important;
+  color: var(--text) !important;
+}
+
+.toastui-editor-popup-add-link .toastui-editor-popup-body {
+  padding: 20px !important;
+  font-size: 14px !important;
+}
+
+.toastui-editor-popup-add-link .toastui-editor-popup-body label {
+  margin: 14px 0 6px !important;
+  color: var(--text-muted) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}
+
+.toastui-editor-popup-add-link .toastui-editor-popup-body label:first-child {
+  margin-top: 0 !important;
+}
+
+.toastui-editor-popup-add-link .toastui-editor-popup-body input[type="text"] {
+  width: 100% !important;
+  height: auto !important;
+  padding: 10px 12px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  background: transparent !important;
+  color: var(--text) !important;
+  font-size: 14px !important;
+}
+
+.toastui-editor-popup-add-link .toastui-editor-popup-body input[type="text"]:focus {
+  border-color: var(--accent) !important;
+  outline: none !important;
+}
+
+.toastui-editor-popup-add-link .toastui-editor-button-container {
+  display: flex !important;
+  gap: 8px !important;
+  justify-content: flex-end !important;
+  margin-top: 20px !important;
+}
+
+.toastui-editor-popup-add-link .toastui-editor-ok-button,
+.toastui-editor-popup-add-link .toastui-editor-close-button {
+  height: auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 8px var(--btn-px) !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+.toastui-editor-popup-add-link .toastui-editor-ok-button {
+  background-color: var(--accent) !important;
+  color: #fff !important;
+}
+
+.toastui-editor-popup-add-link .toastui-editor-ok-button:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+.toastui-editor-popup-add-link .toastui-editor-close-button {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: var(--text-muted) !important;
+}
+
+.toastui-editor-popup-add-link .toastui-editor-close-button:hover {
+  background: var(--btn-hover) !important;
+  border-color: var(--btn-hover) !important;
+  color: var(--text) !important;
+}
+
+.toastui-editor-contents ul,
+.toastui-editor-contents ol {
+  margin: 0.25em 0 1.5em 0 !important;
+}
+.toastui-editor-contents li ul,
+.toastui-editor-contents li ol {
+  margin-bottom: 0 !important;
+}
+
+.toastui-editor-contents ul > li:not(.task-list-item)::before {
+  background-color: var(--text) !important;
+  margin-top: 10px !important;
+}
+.toastui-editor-contents ol > li::before {
+  color: var(--text) !important;
+  margin-left: -31px !important;
+}
+
+/* 3px wider than the checkbox each side, so a near miss toggles it instead of editing the text.
+   Toast UI hit-tests the ::before box itself, so that pseudo is the target and ::after draws. */
+.toastui-editor-contents .task-list-item {
+  margin-left: -27px !important;
+  padding-left: 27px !important;
+}
+
+.toastui-editor-contents .task-list-item::before {
+  left: 0 !important;
+  top: 0 !important;
+  width: 24px !important;
+  height: 24px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: none !important;
+}
+
+.toastui-editor-contents .task-list-item::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  /* Untouchable, so the hit box under it keeps its pointer cursor. */
+  pointer-events: none;
+}
+
+.toastui-editor-contents .task-list-item.checked::after {
+  border-color: var(--accent);
+  background: var(--accent)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'/%3E%3C/svg%3E")
+    center / 14px 14px no-repeat;
+}
+
+/* Color popup — themed to match our modals, like the link popup above. */
+.toastui-editor-popup-color {
+  width: 246px !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-popover) !important;
+  color: var(--text) !important;
+}
+
+.toastui-editor-popup-color .toastui-editor-popup-body {
+  padding: 14px !important;
+}
+
+.tui-colorpicker-container,
+.tui-colorpicker-palette-container {
+  width: 100% !important;
+}
+
+/* Vendor detail picker is replaced by our HSL slider/field controls (.editor-hsl). */
+.tui-colorpicker-palette-toggle-slider,
+.tui-colorpicker-slider-container,
+.tui-colorpicker-palette-hex,
+.tui-colorpicker-palette-preview {
+  display: none !important;
+}
+
+ul.tui-colorpicker-clearfix {
+  display: flex !important;
+  justify-content: space-between;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  list-style: none;
+}
+
+ul.tui-colorpicker-clearfix li {
+  float: none !important;
+  margin: 0 !important;
+}
+
+.tui-colorpicker-palette-button {
+  display: block;
+  box-sizing: border-box;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 50% !important;
+  cursor: pointer;
+  transition:
+    transform var(--transition),
+    box-shadow var(--transition);
+}
+
+@media (hover: hover) {
+  .tui-colorpicker-palette-button:hover {
+    transform: scale(1.15);
+    box-shadow:
+      0 0 0 2px var(--surface),
+      0 0 0 3px var(--border);
+  }
+}
+
+.tui-colorpicker-palette-button.tui-colorpicker-selected {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--accent);
+}
+
+.editor-hsl {
+  clear: both;
+  margin-top: -14px;
+}
+
+.editor-hsl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.editor-hsl-row.editor-hsl-sep {
+  margin-top: 14px;
+}
+
+.editor-hsl-row span {
+  width: 24px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.editor-hsl-row input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 9px;
+  margin: 4px 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  /* Stops the repeating gradient tiling its left color under the right border edge. */
+  background-clip: padding-box;
+}
+
+.editor-hsl-row input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.editor-hsl-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--thumb, var(--text-muted));
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.editor-hsl-row input[type="range"]::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--thumb, var(--text-muted));
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+/* !important pins the field look against the vendor's popup-input styling. */
+.editor-hsl-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  height: auto !important;
+  padding: 6px 8px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  background: transparent !important;
+  color: var(--text) !important;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace !important;
+  font-size: 12px !important;
+  outline: none !important;
+  transition: border-color 0.15s;
+}
+
+.editor-hsl-row input[type="text"]:focus {
+  border-color: var(--accent) !important;
+}
+
+.editor-hsl-chip {
+  align-self: stretch;
+  width: 28px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.editor-color-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* !important pins the .btn look against the vendor's absolute-positioned popup buttons. */
+.editor-color-actions .btn {
+  position: static !important;
+  flex: 1;
+  width: auto !important;
+  justify-content: center;
+  height: 34px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: 13px !important;
+}
+
+.editor-color-actions .btn-primary {
+  background: var(--accent) !important;
+  border: 1px solid transparent !important;
+  color: #fff !important;
+}
+
+.editor-color-actions .btn-secondary {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+
+@media (hover: hover) {
+  .editor-color-actions .btn-primary:hover {
+    background: var(--accent-hover) !important;
+  }
+
+  .editor-color-actions .btn-secondary:hover {
+    background: var(--btn-hover) !important;
+  }
+}
+
+/* ── Media preview ── */
+#preview-view {
+  /* Height of both bars: the media is inset by it, top and bottom, so neither bar hides any. */
+  --preview-bar-h: 54px;
+  /* Rows, so the media can span under the bars and hiding them never resizes the media. */
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  background: #111;
+}
+
+.preview-content-area {
+  position: relative;
+  grid-area: 1 / 1 / -1 / -1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* Clips the media while a swipe slides it out. */
+  overflow: hidden;
+}
+
+/* An embed fills its box and carries its own toolbar, so it sits between the bars, not under them. */
+.has-embed .preview-content-area {
+  grid-area: 2 / 1 / 3 / -1;
+}
+
+.preview-topbar {
+  position: relative;
+  grid-area: 1 / 1;
+  z-index: 1;
+  min-height: var(--preview-bar-h);
+  transition: opacity 0.2s;
+}
+
+/* A scrim, so the media stays visible under it; on a pseudo so it fades past the bar's own box. */
+.preview-topbar::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 -24px;
+  z-index: -1;
+  background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
+}
+
+/* Tapping a photo hides the chrome so nothing overlays it. */
+.chrome-hidden .preview-topbar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Mirrors the topbar: a scrim over media the --preview-bar-h padding already keeps clear. */
+.preview-tagbar {
+  position: relative;
+  grid-area: 3 / 1;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--preview-bar-h);
+  padding: 10px var(--page-px);
+  transition: opacity 0.2s;
+}
+
+.preview-tagbar::before {
+  content: "";
+  position: absolute;
+  inset: -24px 0 0;
+  z-index: -1;
+  background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75));
+}
+
+/* A share link has no tags, so the bar renders nothing and must claim no row. */
+.preview-tagbar:empty {
+  display: none;
+}
+
+.chrome-hidden .preview-tagbar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* A song's playback buttons join the tag button's row, and wrap within it when it runs out. */
+.preview-tagbar.has-audio {
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+/* Boxless, so its buttons wrap as one row with the tag button and their menus centre on the bar. */
+.audio-bar {
+  display: contents;
+}
+
+/* Sits on the media scrim, so it borrows the tag button's light-on-dark treatment. */
+.audio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: none;
+  color: #ddd;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  --tag-ring: rgba(0, 0, 0, 0.55); /* the scrim behind the dots, over media of any colour */
+}
+
+.audio-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.audio-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (hover: hover) {
+  .audio-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+.audio-menu-wrap.menu-open .tag-menu {
+  display: block;
+}
+
+/* The lead-in text a menu opens with; it owns the divider so it stays inset like the mix one. */
+.audio-menu > .tag-menu-empty {
+  border-bottom: 1px solid var(--border);
+}
+
+.audio-menu .tag-menu-empty + .tag-menu-list {
+  margin-top: 0;
+  padding-top: 6px;
+}
+
+/* Closes the tagging menu, below the rows; the list's negative margin already eats its own gap. */
+.audio-mix {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.audio-mix-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.audio-mix-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Spinners are dropped: they would crowd a field this narrow, and arrow keys still step it. */
+.audio-mix-field input {
+  width: 44px;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: right;
+  -moz-appearance: textfield;
+}
+
+.audio-mix-field input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.audio-mix-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.audio-mix-presets {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.audio-mix-preset {
+  flex: 1;
+  padding: 4px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.audio-mix-preset.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (hover: hover) {
+  .audio-mix-preset:not(:disabled):hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+/* The mix waits on a tag to weigh against, so it greys out rather than vanishing from the menu. */
+.audio-mix.disabled {
+  opacity: 0.45;
+}
+
+.audio-mix.disabled .audio-mix-row,
+.audio-mix.disabled .audio-mix-preset {
+  cursor: default;
+}
+
+/* Bottom bar: the audio menus open upward and clear the whole bar, so they can't overlap it. */
+.preview-tagbar .tag-menu {
+  top: auto;
+  bottom: calc(100% + var(--popover-gap));
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+#preview-back-btn {
+  margin-left: calc(-1 * var(--btn-px));
+}
+
+.preview-options-wrap {
+  position: relative;
+}
+
+#preview-options-btn {
+  margin-right: calc(-1 * var(--btn-px));
+}
+
+#preview-options-btn .btn-label {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  #preview-options-btn .btn-label {
+    display: inline;
+  }
+}
+
+.preview-options {
+  right: 0;
+  min-width: 160px;
+}
+
+.preview-tagslot {
+  display: flex;
+  align-items: center;
+  margin-right: -6px; /* both buttons' own padding spaces them; the bar's gap is redundant */
+}
+
+@media (min-width: 769px) {
+  .preview-tagslot {
+    margin-right: -5px;
+  }
+}
+
+/* A share link has no tags, so the slot renders nothing and must not claim the bar's gap. */
+.preview-tagslot:empty {
+  display: none;
+}
+
+/* Wears the shape and colours of the ghost buttons beside it, so the bar reads as one row. */
+.preview-topbar .tag-add {
+  gap: 6px;
+  padding: 8px var(--btn-px);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: #bbb;
+  font-size: 13px;
+  font-weight: 500;
+  --tag-ring: rgba(0, 0, 0, 0.55); /* the scrim behind the dots, over media of any colour */
+}
+
+/* Restates the border, which the base hover would otherwise paint accent. */
+@media (hover: hover) {
+  .preview-topbar .tag-add:hover {
+    border-color: transparent;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
+}
+
+.preview-topbar .file-name {
+  color: #eee;
+  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-topbar .btn-ghost {
+  color: #bbb;
+}
+
+@media (hover: hover) {
+  .preview-topbar .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
+}
+
+.preview-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(60, 60, 60, 0.75);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  padding: 12px 10px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background var(--transition),
+    opacity 0.2s;
+  /* Held composited: a swipe sliding under them promotes them mid-gesture, blanking them. */
+  will-change: transform;
+}
+
+@media (min-width: 1025px) {
+  .preview-nav-btn {
+    padding: 20px 14px;
+  }
+}
+
+.preview-nav-btn svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+@media (min-width: 1025px) {
+  .preview-nav-btn svg {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@media (hover: hover) {
+  .preview-nav-btn:not(:disabled):hover {
+    background: rgba(60, 60, 60, 0.95);
+  }
+}
+
+.preview-nav-btn:disabled,
+.chrome-hidden .preview-nav-btn {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#preview-prev-btn {
+  left: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding-left: 8px;
+  padding-right: 10px;
+}
+
+@media (min-width: 1025px) {
+  #preview-prev-btn {
+    padding-left: 10px;
+    padding-right: 14px;
+  }
+}
+
+#preview-next-btn {
+  right: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  padding-right: 8px;
+  padding-left: 10px;
+}
+
+@media (min-width: 1025px) {
+  #preview-next-btn {
+    padding-right: 10px;
+    padding-left: 14px;
+  }
+}
+
+.preview-body {
+  position: relative;
+  flex: 1;
+  /* Without this the media's own height floors the box, and a tall video overflows the screen. */
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--preview-bar-h) 0;
+  /* A swipe's neighbor panes sit outside this box; .preview-content-area clips them. */
+  overflow: visible;
+  /* Nothing here scrolls, so the browser must claim no drag; a photo's pinch-zoom still works. */
+  touch-action: pinch-zoom;
+  /* Held composited: promoting only once a swipe moves re-rasters the photo, flashing it black. */
+  will-change: transform;
+}
+
+@media (min-width: 1025px) {
+  .preview-body {
+    padding: var(--preview-bar-h) 20px;
+  }
+}
+
+.preview-none {
+  color: #bbb;
+  font-size: 14px;
+}
+
+/* Fade-in delay so instant cached loads don't flash a spinner. */
+.preview-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #bbb;
+  font-size: 14px;
+  pointer-events: none;
+  animation: preview-spinner-fade 0.1s linear 0.1s both;
+}
+
+.preview-spinner::after {
+  content: "";
+  display: block;
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: preview-spinner-spin 0.8s linear infinite;
+}
+
+.preview-spinner.failed::after {
+  display: none;
+}
+
+@keyframes preview-spinner-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes preview-spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.preview-body img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* The 320px thumb stands in on the full image's rect, so the swap doesn't move anything. An
+   original small enough to have no larger rect is pinned to its own size in JS. */
+.preview-body .preview-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+/* Neighbors, parked a screen out so the body's swipe transform drags them in; JS sets the offset. */
+.preview-peek {
+  position: absolute;
+  inset: 0;
+  /* Matches the body's own padding, so a peek lands on exactly the rect the real media gets. */
+  padding: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* A stand-in only: the drag owns the pointer, and its player must not take a tap. */
+  pointer-events: none;
+  /* Its own layer, so mounting a peek mid-gesture can't dirty the photo's raster. */
+  will-change: transform;
+}
+
+/* Sized like the body's own photo: a sharpened peek holds the real image, which never upscales. */
+.preview-peek img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Sized to the box, not the poster: a 320px thumb would set the start size, then jump on metadata. */
+.preview-body video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Gutters keep the player's controls clear of the prev/next arrows. */
+.preview-body audio,
+.preview-peek audio {
+  width: calc(100% - 112px);
+  max-width: 480px;
+}
+
+.has-embed .preview-body {
+  padding: 0;
+  align-items: stretch;
+  overflow: auto;
+  /* An embed scrolls and can't be swiped, so the browser keeps its pan gestures here. */
+  touch-action: auto;
+  /* Never swiped, so it needs no standing layer. */
+  will-change: auto;
+}
+
+.preview-body iframe {
+  flex: 1;
+  border: none;
+}
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--toast-bg);
+  color: var(--toast-text);
+  padding: 10px 18px;
+  border-radius: 9999px;
+  font-size: 13px;
+  max-width: calc(100vw - 40px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
+  z-index: var(--z-toast);
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.toast.error {
+  background: var(--danger);
+}
+
+.toast.has-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 10px;
+}
+
+/* Clears the viewer's tag bar, which otherwise sits under the action and takes its clicks. */
+.toast.lifted {
+  bottom: 60px;
+}
+
+.toast-msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The action shares the row, so the message gives up width first rather than push it off-centre. */
+.toast.has-action .toast-msg {
+  max-width: 240px;
+}
+
+.toast-action {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.14);
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  /* Only the action takes clicks, and only while up, so the toast never swallows one. */
+  pointer-events: none;
+}
+
+.toast.show .toast-action {
+  pointer-events: auto;
+}
+
+.toast-action:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+/* ─── Media tools ───────────────────────────────────────────────────────────── */
+
+.tool-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tool-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.tool-row > span:first-child {
+  flex: 0 0 96px;
+}
+
+.tool-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.tool-row output {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 24px;
+  text-align: right;
+}
+
+.tool-select {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.tool-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* .modal input is width:100%, which would stretch a checkbox into a bar and shove its label off. */
+.tool-check {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tool-check input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+/* ── Trim scrubber ── */
+
+/* Unselectable: a drag that starts on text drags the selection rather than the mark under it. */
+.trim-player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.trim-play {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+}
+
+.trim-play svg {
+  width: 16px;
+  height: 16px;
+}
+
+.trim-play.playing {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (hover: hover) {
+  .trim-play:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+/* Padded so a handle sitting at 0% or 100% still has room to render inside the dialog. */
+.trim-scrub {
+  flex: 1;
+  padding: 14px 0;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.trim-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.trim-sel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.trim-playhead {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text);
+  pointer-events: none;
+  z-index: 1; /* it parks on a mark constantly; behind the handle it would look like it vanished */
+}
+
+/* A line, not a knob: at the track's ends a round handle buried the bar. The box is the grab area. */
+.trim-handle {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 22px;
+  margin: -11px 0 0 -8px;
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.trim-handle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.trim-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Sized to its digits, not padded out: slack here reads as a gap the bar's other end doesn't have. */
+.trim-clock {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.trim-marks {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trim-mark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.trim-mark > span {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.trim-mark input {
+  width: 84px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trim-length {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.trim-length.invalid {
+  color: var(--danger);
+}
+
+@media (max-width: 480px) {
+  .trim-marks {
+    flex-wrap: wrap;
+  }
+  .trim-length {
+    flex-basis: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+}
+
+/* ── Utilities ── */
+.hidden {
+  display: none !important;
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.flex {
+  display: flex;
+}
+
+.gap-2 {
+  gap: 8px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state .icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.empty-state p {
+  font-size: 14px;
+}
+
+/* ─── Vault ────────────────────────────────────────────────────────────────── */
+
+.vault-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  /* Same width dance as .file-list, so the two line up. */
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto 12px;
+  border: 1px solid var(--accent-subtle-border);
+  background: var(--accent-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* Grid cards are capped wider than list rows, so the bar follows whichever is showing. */
+.vault-bar-grid {
+  max-width: 960px;
+}
+/* The badge already reads as a state; on a narrow screen the button's label is the redundant part. */
+@media (max-width: 480px) {
+  .vault-bar .btn-label {
+    display: none;
+  }
+}
+
+.vault-bar-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.vault-locked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 64px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.vault-locked .icon {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.vault-locked-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Stacked like the login card, and sized to match it: same field, same full-width button. */
+.vault-unlock-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 6px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.vault-unlock-form input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.vault-unlock-form input:focus {
+  border-color: var(--accent);
+}
+
+.vault-unlock-form .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.vault-error {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.recovery-code {
+  margin: 12px 0;
+  padding: 14px;
+  border: 1px dashed var(--accent-subtle-border);
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 17px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--text);
+  cursor: pointer;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .recovery-code {
+    font-size: 14px;
+  }
+}
+
+.modal-note {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.modal-text-input {
+  margin-bottom: 8px;
+}
+
+.modal-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.modal-check input {
+  width: auto;
+}
+
+/* ─── Folder picker ────────────────────────────────────────────────────────── */
+
+/* Pulled out by the rows' padding, so their contents line up with the title, not their edges. */
+.picker {
+  margin: 0 -8px;
+}
+
+/* Everything in the picker lines up on one pair of edges. The rows keep the padding their hover
+   box needs and the head is inset to match it, rather than the rows reaching outward — a row
+   wider than the list it scrolls in is clipped at the ends and puts a scrollbar under them. */
+.picker-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Padding pulled back out, so it is the icon that meets the edge and the hover box that overhangs.
+   Without .btn's transparent border the overhang is exactly the rows' padding, and nothing spills. */
+.picker-head .btn {
+  padding: 8px;
+  border: 0;
+}
+
+/* Bigger than a toolbar icon: these two are the whole of the picker's own navigation. */
+.picker-head .btn-icon {
+  width: 18px;
+  height: 18px;
+}
+.picker-head .btn:first-child {
+  margin-left: -8px;
+}
+.picker-head .btn:last-child {
+  margin-right: -8px;
+}
+
+.picker-path {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-new-row {
+  display: flex;
+  gap: 8px;
+  margin: 8px 8px 0;
+}
+
+/* Beats .modal input, whose full width would push the create button out of the row. */
+.modal .picker-new-row input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+/* Fixed height, so the dialog doesn't resize under the pointer as folders are stepped through. */
+.picker-list {
+  height: 34vh;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .picker-row:hover {
+    background: var(--hover-bg);
+  }
+}
+
+.picker-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-row-chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.picker-note {
+  padding: 16px 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ─── Storage ──────────────────────────────────────────────────────────────── */
+
+/* Holds the loaded bar + line's height while reading, so the modal opens at its final size. */
+.storage-meter {
+  min-height: 38px;
+}
+
+.storage-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--hover-bg);
+  overflow: hidden;
+}
+
+.storage-bar-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.storage-line {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.storage-heading {
+  margin: 18px 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.storage-types {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.storage-seg {
+  min-width: 3px; /* a sliver of a family still has to be visible in the bar */
+}
+
+.storage-type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 2px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.storage-type:last-child {
+  border-bottom: 0;
+}
+
+.storage-type-name {
+  margin-right: auto;
+}
+
+.storage-type-size {
+  color: var(--text-muted);
+}
+
+/* Fixed width: the shares hold one column so the sizes left of them line up too. */
+.storage-type-share {
+  width: 34px;
+  flex-shrink: 0;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.storage-swatch {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+
+/* Each family is stepped per theme — the dark steps are picked against the dark surface, not flipped. */
+.storage-cat-documents {
+  background: #4b7ed3;
+}
+
+.storage-cat-photos {
+  background: #ebbe39;
+}
+
+.storage-cat-videos {
+  background: #da4a80;
+}
+
+.storage-cat-audio {
+  background: #3fad60;
+}
+
+.storage-cat-archives {
+  background: #844f3d;
+}
+
+.storage-cat-other {
+  background: #9a9fa8;
+}
+
+.storage-summary {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+  min-height: 18px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.storage-note {
+  padding: 12px 2px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ─── Drop box ─────────────────────────────────────────────────────────────── */
+
+#drop-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* The browser's header on a phone is its breadcrumb row, which a drop link has none of. */
+#drop-view .topbar {
+  display: flex;
+}
+
+.dropbox {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 32px var(--page-px) 48px;
+}
+
+.dropbox-title {
+  font-size: 22px;
+  margin-bottom: 20px;
+}
+
+.dropbox-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 36px 16px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+}
+.dropbox-zone:hover,
+.dropbox-zone.over {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.dropbox-zone-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--accent);
+}
+
+.dropbox-zone-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.dropbox-zone-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.dropbox-list {
+  margin-top: 16px;
+}
+
+.dropbox-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.dropbox-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropbox-row-state {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.dropbox-row.done .dropbox-row-state {
+  color: var(--accent);
+}
+.dropbox-row.failed .dropbox-row-state {
+  color: var(--danger);
+}
+
+.dropbox-row-bar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--hover-bg);
+  overflow: hidden;
+}
+
+.dropbox-row-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s;
+}
