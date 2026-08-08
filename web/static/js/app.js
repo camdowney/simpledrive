@@ -4872,7 +4872,7 @@ const openEditResult = async (name) => {
   else goBackToBrowser()
 }
 
-const previewNavigate = async (delta) => {
+const previewNavigate = async (delta, { fromHead = null } = {}) => {
   const entry = previewNeighbor(delta)
   if (!entry) return
   // Stepping back asks for the neighbour again; it says nothing about the song being left.
@@ -4880,7 +4880,7 @@ const previewNavigate = async (delta) => {
   if (back) settleTagging(false, { keepOnly: true })
   // Only a step off the newest song extends the run; from behind it, forward retraces old ground
   // and stays behind until it catches up, so no skip along the way reads as a real one.
-  const extend = !back && state.audioTrack?.path === state.audioHead
+  const extend = !back && (fromHead ?? state.audioTrack?.path === state.audioHead)
   // Settled before the open, which draws the back button off it. The play queue carries the run's
   // own history, so the stack only holds what it was paged into from — a photo it followed.
   const from = currentPreviewEntry()?.name
@@ -5451,8 +5451,10 @@ const buildAudioPlayer = () => {
     if (entry) setMediaMetadata(entry.name)
   })
   player.addEventListener("ended", () => {
+    // Settling clears the track the run's position is read from, so take it before that.
+    const fromHead = state.audioTrack?.path === state.audioHead
     const moved = settleTagging(true)
-    if (state.audioMode !== "off") return previewNavigate(1)
+    if (state.audioMode !== "off") return previewNavigate(1, { fromHead })
     // Nothing follows, so the finished song stays up: redraw only if tagging changed its chips,
     // since a rebuild would close whatever menu the bar has open.
     const entry = currentPreviewEntry()
