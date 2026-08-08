@@ -870,6 +870,7 @@ const showDetails = async (entry, { onRenamed } = {}) => {
     </div>`,
     okLabel: readOnly ? "Close" : "Save",
     closeOnly: readOnly,
+    okClass: readOnly ? "btn btn-subtle" : "",
     onOk: () => (readOnly ? cleanup() : submit()),
   })
   const nameInp = document.getElementById("detail-name")
