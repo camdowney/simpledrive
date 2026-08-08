@@ -533,7 +533,7 @@ const showRename = (entry, { onRenamed } = {}) => {
 // Shared by the toolbar and the viewer's menu, which differ only in where they land afterwards.
 const deleteEntries = (entries, { after } = {}) => {
   if (!entries.length) return
-  const label = entries.length === 1 ? `"${entries[0].name}"` : `${entries.length} items`
+  const label = entries.length === 1 ? `“${entries[0].name}”` : `${entries.length} items`
   // Removing a bucket's folder only drops the stored credentials; the bucket keeps its objects.
   const onlyMount = entries.length === 1 && entries[0].isMount
   // Already in the trash, so the server erases outright rather than trashing again.
@@ -579,7 +579,7 @@ const deleteEntries = (entries, { after } = {}) => {
           const tags = retagPath(rel, null)
           if (res.trashed) trashed.push({ name: entry.name, tags })
         } catch (e) {
-          toast(`Failed to delete ${entry.name}: ${e.message}`, true)
+          toast(`Failed to delete “${entry.name}”: ${e.message}`, true)
         }
       }
       state.selected.clear()
@@ -594,7 +594,7 @@ const deleteEntries = (entries, { after } = {}) => {
 // A collision is rare and merely costs the shortcut: the trash dialog still has the file.
 const offerUndoDelete = (items) => {
   // Not "Moved … to trash": a long name ellipsises the tail away, leaving a half-sentence.
-  const label = items.length === 1 ? `Deleted "${items[0].name}"` : `Deleted ${items.length} items`
+  const label = items.length === 1 ? `Deleted “${items[0].name}”` : `Deleted ${items.length} items`
   toast(label, false, async () => {
     for (const { name, tags } of items) {
       try {
@@ -1101,7 +1101,7 @@ const showS3Mount = () => {
       return
     }
     cleanup()
-    toast(`Connected ${body.name}`)
+    toast(`Connected “${body.name}”`)
     navigate(state.currentPath)
   }
 }
@@ -2937,7 +2937,7 @@ const moveEntriesToDir = async (entries, destDir) => {
       retagPath(from, to)
       moved++
     } catch (e) {
-      toast(`Failed to move ${entry.name}: ${e.message}`, true)
+      toast(`Failed to move “${entry.name}”: ${e.message}`, true)
     }
   }
   if (moved > 0) {
@@ -2986,7 +2986,7 @@ const copyEntriesToDir = async (entries, destDir) => {
       await api("POST", "/api/files/copy", { from, to })
       copied++
     } catch (e) {
-      toast(`Failed to copy ${entry.name}: ${e.message}`, true)
+      toast(`Failed to copy “${entry.name}”: ${e.message}`, true)
     }
   }
   if (copied > 0) {
@@ -3431,7 +3431,7 @@ const uploadResumable = async (file, path, onProgress) => {
     // No part to resume into — a bucket, or the probe itself failed. Send it in one piece.
     return uploadOne(file, path, onProgress)
   }
-  if (offset) toast(`Resuming ${file.name} at ${fmtSize(offset)}`)
+  if (offset) toast(`Resuming “${file.name}” at ${fmtSize(offset)}`)
 
   let attempt = 0
   for (;;) {
@@ -3549,10 +3549,10 @@ const makeUploadDirs = async (upload, mkdir) => {
       if (parent === "" && made !== name) renamed.push(made)
       real.set(dir, under(at, made))
     } catch (e) {
-      toast(`Could not create ${dir}: ${e.message}`, true)
+      toast(`Could not create “${dir}”: ${e.message}`, true)
     }
   }
-  if (renamed.length === 1) toast(`Name taken — folder saved as ${renamed[0]}`)
+  if (renamed.length === 1) toast(`Name taken — folder saved as “${renamed[0]}”`)
   else if (renamed.length > 1) toast(`${renamed.length} folders renamed to avoid overwriting`)
   return real
 }
@@ -3594,7 +3594,7 @@ const uploadFiles = async (upload, path) => {
       doneBytes += file.size // its folder could not be made, so there is nowhere to put it
       continue
     }
-    titleEl.textContent = `Uploading ${file.name}`
+    titleEl.textContent = `Uploading “${file.name}”`
     labelEl.textContent = `${i + 1} / ${total}`
 
     try {
@@ -3606,14 +3606,14 @@ const uploadFiles = async (upload, path) => {
       // Refresh per file so bulk uploads appear as they land, unless the user browsed elsewhere.
       if (res && !relDir && state.currentPath === path) await navigate(path)
     } catch (e) {
-      toast(`Failed to upload ${file.name}: ${e.message}`, true)
+      toast(`Failed to upload “${file.name}”: ${e.message}`, true)
     }
     doneBytes += file.size
   }
 
   if (madeDirs && state.currentPath === path) await navigate(path)
 
-  if (renamed.length === 1) toast(`Name taken — saved as ${renamed[0]}`)
+  if (renamed.length === 1) toast(`Name taken — saved as “${renamed[0]}”`)
   else if (renamed.length > 1) toast(`${renamed.length} files renamed to avoid overwriting`)
 
   barEl.style.width = "100%"
@@ -5254,7 +5254,7 @@ const settleTagging = (finished, { keepOnly = false } = {}) => {
   if (!keep && (keepOnly || track.path !== state.audioHead)) return false
   if (keep === (state.fileTags[track.path] || []).includes(tag.id)) return false
   setFileTag(track.path, tag.id, keep)
-  toast(`${keep ? "Tagged" : "Untagged"} ${track.name} · ${tag.name}`, false, () => {
+  toast(`${keep ? "Tagged" : "Untagged"} “${track.name}” · ${tag.name}`, false, () => {
     setFileTag(track.path, tag.id, !keep)
     renderFiles()
     if (state.previewType !== "audio") return
@@ -5718,7 +5718,7 @@ const pollJobs = async () => {
     for (const j of lastJobs) {
       if (!finished.includes(j.id) || jobActive(j)) continue
       if (j.status === "failed") {
-        toast(`${j.name}: ${j.error || "conversion failed"}`, true)
+        toast(`“${j.name}”: ${j.error || "conversion failed"}`, true)
         continue
       }
       if (j.status !== "done") continue
@@ -5785,7 +5785,7 @@ const renderJobPanel = () => {
     const pct = Math.round((current.progress || 0) * 100)
     const waiting = active.length - 1
     const running = current.status === "running"
-    title.textContent = `${running ? "Downsizing" : "Waiting to downsize"} ${current.name}`
+    title.textContent = `${running ? "Downsizing" : "Waiting to downsize"} “${current.name}”`
     bar.style.width = running ? `${pct}%` : "0%"
     label.textContent = (running ? `${pct}%` : "Queued") + (waiting ? ` · ${waiting} queued` : "")
     cancel.classList.remove("hidden")
@@ -5804,7 +5804,7 @@ const renderJobPanel = () => {
     return
   }
   // A job can fail before a poll ever caught it running, and "Waiting to…, Failed" reads wrong.
-  title.textContent = `Downsizing ${ended.name}`
+  title.textContent = `Downsizing “${ended.name}”`
   if (ended.status === "done") bar.style.width = "100%"
   label.textContent = jobOutcomeLabel(ended)
   jobPanelTimer = setTimeout(() => {
@@ -5864,7 +5864,7 @@ const showTrimAudio = (path, name) => {
   let dragging = null
 
   const closeModal = showExtraModal({
-    title: `Trim ${name}`,
+    title: `Trim “${name}”`,
     okLabel: "Trim",
     extraHtml: `
       <div class="tool-form">
@@ -5909,7 +5909,7 @@ const showTrimAudio = (path, name) => {
       try {
         const res = await api("POST", "/api/media/trim-audio", { path, start, end, replace })
         dismiss()
-        toast(`Saved ${res.name}`)
+        toast(`Saved “${res.name}”`)
         await openEditResult(res.name)
       } catch (e) {
         toast(e.message, true)
@@ -6126,7 +6126,7 @@ const IMAGE_SIZE_PRESETS = [1280, 1920, 2560, 4096]
 const showResizeImages = (items) => {
   const many = items.length > 1
   const cleanup = showExtraModal({
-    title: many ? `Resize ${items.length} images` : `Resize ${items[0].name}`,
+    title: many ? `Resize ${items.length} images` : `Resize “${items[0].name}”`,
     okLabel: "Resize",
     extraHtml: `
       <div class="tool-form">
@@ -6175,7 +6175,7 @@ const showResizeImages = (items) => {
       const was = done.reduce((n, r) => n + r.wasSize, 0)
       const size = done.reduce((n, r) => n + r.size, 0)
       const skipped = items.length - done.length
-      const what = many ? `Resized ${done.length} images` : `Saved ${done[0].name}`
+      const what = many ? `Resized ${done.length} images` : `Saved “${done[0].name}”`
       toast(`${what} — ${fmtSize(was)} → ${fmtSize(size)}${skipped ? `, ${skipped} skipped` : ""}`)
       // A batch has no single result to land on, so it goes back to the listing that holds them all.
       if (done.length === 1) return openEditResult(done[0].name)
@@ -6201,7 +6201,7 @@ const VIDEO_QUALITIES = [
 
 const showResizeVideo = (path, name) => {
   const cleanup = showExtraModal({
-    title: `Resize ${name}`,
+    title: `Resize “${name}”`,
     okLabel: "Start",
     extraHtml: `
       <div class="tool-form">
@@ -6442,7 +6442,7 @@ const showVaultCreate = () => {
 
 const showVaultPassphrase = (name) => {
   const close = showExtraModal({
-    title: `Password for "${esc(name)}"`,
+    title: `Password for “${esc(name)}”`,
     extraHtml: `
       <p class="modal-note">
         This password cannot be reset. ${VAULT_MIN_PASSPHRASE} characters minimum.
@@ -6499,7 +6499,7 @@ const showRecoveryCode = (code, dir) => {
     title: "Save your recovery code",
     extraHtml: `
       <p class="modal-note">
-        This is the only way into "${esc(baseName(dir))}" if you forget the password. Write it down, or store it in a password manager. It will not be shown again.
+        This is the only way into “${esc(baseName(dir))}” if you forget the password. Write it down, or store it in a password manager. It will not be shown again.
       </p>
       <div class="recovery-code" id="recovery-code" title="Click to copy">${esc(code)}</div>
       <label class="modal-check">
@@ -6559,7 +6559,7 @@ const uploadToVault = async (upload, path) => {
       continue
     }
     // Encryption comes first and reports no bytes, so the bar holds where the last file left it.
-    titleEl.textContent = `Uploading ${file.name}`
+    titleEl.textContent = `Uploading “${file.name}”`
     labelEl.textContent = `${i + 1} / ${files.length}`
     try {
       await Vault.addFile(file, under(root, dest), {
@@ -6571,7 +6571,7 @@ const uploadToVault = async (upload, path) => {
       // Refresh per file so a long batch fills in as it lands, rather than staying empty throughout.
       if (!relDir && state.currentPath === path) await navigate(path, { pushHash: false })
     } catch (e) {
-      toast(`Failed to add ${file.name}: ${e.message}`, true)
+      toast(`Failed to add “${file.name}”: ${e.message}`, true)
     }
     doneBytes += file.size
   }

@@ -88,7 +88,7 @@ const Vault = (() => {
 
   const getBytes = async (dir, name) => {
     const res = await fetch(`/api/files/download?path=${encodeURIComponent(filePath(dir, name))}`)
-    if (!res.ok) throw new Error(`could not read ${name}`)
+    if (!res.ok) throw new Error(`could not read “${name}”`)
     return new Uint8Array(await res.arrayBuffer())
   }
 
@@ -115,13 +115,14 @@ const Vault = (() => {
           data = JSON.parse(xhr.responseText)
         } catch {}
         if (xhr.status < 200 || xhr.status >= 300)
-          return reject(new Error(data?.error || `could not write ${name}`))
+          return reject(new Error(data?.error || `could not write “${name}”`))
         const saved = data?.saved || []
         // Without overwrite the server renames on collision; a silent rename would orphan the blob.
-        if (!overwrite && saved[0] !== name) return reject(new Error(`unexpected name ${saved[0]}`))
+        if (!overwrite && saved[0] !== name)
+          return reject(new Error(`unexpected name “${saved[0]}”`))
         resolve()
       }
-      xhr.onerror = () => reject(new Error(`could not write ${name}`))
+      xhr.onerror = () => reject(new Error(`could not write “${name}”`))
       xhr.send(fd)
     })
 
@@ -131,7 +132,7 @@ const Vault = (() => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: filePath(dir, name) }),
     })
-    if (!res.ok) throw new Error(`could not delete ${name}`)
+    if (!res.ok) throw new Error(`could not delete “${name}”`)
   }
 
   // ── Crypto ──────────────────────────────────────────────────────────────────
