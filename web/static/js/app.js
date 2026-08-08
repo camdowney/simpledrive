@@ -67,6 +67,7 @@ const state = {
   viewPushedHistory: false, // whether the current editor/preview view added a history entry
   previewFiles: [], // ordered viewable entries in current dir
   previewIdx: -1, // index of the currently previewed file
+  previewEntry: null, // the open file's listing row; an archive has one without joining the queue
   previewType: null, // 'image' | 'video' | 'audio' | 'pdf' | 'archive'
   previewSliding: false, // a swipe's slide animation is mid-flight; ignore new gestures
   audioMode: readAudioMode(cachedPrefs.audioMode), // 'off' | 'sequential' | 'shuffle'
@@ -4774,6 +4775,7 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
   state.previewType = type
   state.previewFiles = state.entries.filter((e) => !e.isDir && isViewable(e.name))
   state.previewIdx = state.previewFiles.findIndex((e) => e.name === name)
+  state.previewEntry = entry || null
   renderPreviewBar(path, type)
   updatePreviewNav()
   updatePreviewTool(name)
@@ -5097,7 +5099,9 @@ const TAG_KEEP_SECS = 15 // heard this much and the song earns the tag; skipped 
 // Direct child only: a swipe's peek mounts a player of its own, and that one is scenery.
 const audioPlayer = () => document.querySelector("#preview-body > audio")
 
-const currentPreviewEntry = () => state.previewFiles[state.previewIdx]
+// Not read off the paging queue: an archive opens without joining it, and a tag filter can drop
+// the open file out of the listing under it.
+const currentPreviewEntry = () => state.previewEntry
 
 // The play queue: the folder's songs, narrowed to the picked tags. An empty result would strand
 // playback, so a selection nothing matches falls back to all of them.
