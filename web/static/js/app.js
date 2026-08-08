@@ -239,6 +239,18 @@ const isViewable = (name) => {
   return t === "image" || t === "video" || t === "audio" || (t === "pdf" && EMBEDS_PDF)
 }
 
+const MAX_EDITABLE_SIZE = 10 << 20 // mirrors the server's cap on what it hands the text editor
+
+// Past the cap the viewer stands in and only names the file, the way it does for an archive.
+const tooBigToEdit = (name) => {
+  if (!["text", "markdown"].includes(fileType(name))) return false
+  const entry = state.entries.find((e) => e.name === name) || sharedFileEntry()
+  return !!entry && entry.name === name && entry.size > MAX_EDITABLE_SIZE
+}
+
+// Files the viewer has nothing to paint for, and hands to the toolbar as a name alone.
+const previewsBlank = (name) => fileType(name) === "archive" || tooBigToEdit(name)
+
 const fmtSize = (bytes) => {
   if (bytes < 1024) return bytes + " B"
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
@@ -2891,7 +2903,7 @@ const openLoneFile = (path, name) => {
     if (!window.open(url, "_blank")) location.href = url
     return
   }
-  if (isMedia(name) || type === "pdf" || type === "archive") openPreview(path, name, type)
+  if (isMedia(name) || type === "pdf" || previewsBlank(name)) openPreview(path, name, type)
   else openEditor(path, name)
 }
 
@@ -4641,9 +4653,9 @@ const previewSrcs = (entry, path, name, type) => {
 
 const openPreview = async (path, name, type, { replace = false, paging = false } = {}) => {
   const entry = state.entries.find((e) => e.name === name)
-  // Nothing can be pointed at a vault file until its bytes exist in the page. An archive shows
-  // nothing, so decrypting it here would only stall the open; its download does the work instead.
-  const lazyVault = state.inVault && entry && type === "archive"
+  // Nothing can be pointed at a vault file until its bytes exist in the page. A file the viewer
+  // won't paint has nothing to stall for, so its download does the decrypting instead.
+  const lazyVault = state.inVault && entry && previewsBlank(name)
   if (state.inVault && entry && !lazyVault) {
     try {
       await vaultBlobUrl(entry.id)
@@ -4708,7 +4720,8 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
   } else if (type === "pdf") {
     body.innerHTML = `<iframe src="${esc(url)}" title="${esc(name)}"></iframe>`
   } else {
-    body.innerHTML = `<div class="preview-none">No preview available</div>`
+    const note = tooBigToEdit(name) ? "File too large for text editor" : "No preview available"
+    body.innerHTML = `<div class="preview-none">${esc(note)}</div>`
   }
   const view = document.getElementById("preview-view")
   view.classList.toggle("has-embed", type === "pdf")
@@ -4844,7 +4857,7 @@ const openPreviewEntry = (entry, { paging = false } = {}) =>
 // entry, path and paging queue. Renaming to an extension the viewer can't show drops us back out.
 const reopenRenamed = (name) => {
   const entry = state.entries.find((e) => e.name === name)
-  if (entry && (isViewable(name) || fileType(name) === "archive")) openPreviewEntry(entry)
+  if (entry && (isViewable(name) || previewsBlank(name))) openPreviewEntry(entry)
   else goBackToBrowser()
 }
 
