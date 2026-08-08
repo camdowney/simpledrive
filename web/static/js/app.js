@@ -781,7 +781,7 @@ const showTagsDialog = (entry) => {
     </div>`,
     okLabel: "Done",
     closeOnly: true,
-    okClass: "btn btn-primary",
+    okClass: "btn btn-subtle",
     onOk: () => cleanup(),
   })
   // Tags save as they are set, not on the dialog's button.
@@ -800,7 +800,7 @@ const showShareDialog = async (entry) => {
     extraHtml: shareSectionHtml(rel, entry.name, shares, !!entry.isDir),
     okLabel: "Done",
     closeOnly: true,
-    okClass: "btn btn-primary",
+    okClass: "btn btn-subtle",
     onOk: () => cleanup(),
   })
   wireShareSection(rel)
@@ -1609,7 +1609,7 @@ const showTagManager = () => {
     </div>`,
     okLabel: "Done",
     closeOnly: true,
-    okClass: "btn btn-primary",
+    okClass: "btn btn-subtle",
     onOk: () => cleanup(),
   })
 
