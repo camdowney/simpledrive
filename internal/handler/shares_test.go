@@ -41,7 +41,7 @@ func sharedServer(t *testing.T, mode string) (*server, *share) {
 
 	s := &server{
 		cfg: &config.Config{RootDir: root, SharesPath: sharesPath, MountsPath: filepath.Join(dir, "mounts.json"),
-			SessionHours: 1},
+			TrashIndexPath: filepath.Join(dir, "trash.json"), SessionHours: 1},
 		sessions: auth.NewStore(time.Hour),
 		thumbs:   newThumbCache(filepath.Join(dir, "thumbs")),
 	}
@@ -359,6 +359,120 @@ func TestCoversMatchesOnlyTheSubtree(t *testing.T) {
 	}
 }
 
+// sharedOn replaces the stock link with one over p, for the tests about links following it.
+func sharedOn(t *testing.T, p string) (*server, *share) {
+	t.Helper()
+	s, _ := sharedServer(t, shareView)
+	sh := share{ID: "s1", Token: "tok", Path: p, Mode: shareView}
+	data, _ := json.Marshal([]share{sh})
+	if err := os.WriteFile(s.cfg.SharesPath, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	return s, &sh
+}
+
+// storedPath reports where the one stored link points, or "" once it is gone.
+func storedPath(t *testing.T, s *server) string {
+	t.Helper()
+	shares, err := s.readShares()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(shares) == 0 {
+		return ""
+	}
+	return shares[0].Path
+}
+
+func TestRenameCarriesItsShareAlong(t *testing.T) {
+	s, sh := sharedOn(t, "Public/note.txt")
+
+	w, _ := doJSON(t, s.renameHandler, "POST", "/api/files/rename",
+		map[string]string{"dir": "/Public", "from": "note.txt", "to": "renamed.txt"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("rename = %d, want 200", w.Code)
+	}
+	if got := storedPath(t, s); got != "Public/renamed.txt" {
+		t.Errorf("share path after rename = %q, want Public/renamed.txt", got)
+	}
+	w = asShare(t, s, sh, s.downloadHandler, accessRead, "GET",
+		"/api/files/download?path=/Public/renamed.txt", nil)
+	if w.Code != http.StatusOK {
+		t.Errorf("downloading through the link after rename = %d, want 200", w.Code)
+	}
+}
+
+// A link deep inside a renamed folder has to move with it, not just one named for the folder.
+func TestRenamingAFolderCarriesTheLinksInsideIt(t *testing.T) {
+	s, sh := sharedOn(t, "Public/Sub/deep.txt")
+
+	w, _ := doJSON(t, s.renameHandler, "POST", "/api/files/rename",
+		map[string]string{"dir": "/Public", "from": "Sub", "to": "Moved"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("rename = %d, want 200", w.Code)
+	}
+	if got := storedPath(t, s); got != "Public/Moved/deep.txt" {
+		t.Errorf("share path after folder rename = %q, want Public/Moved/deep.txt", got)
+	}
+	w = asShare(t, s, sh, s.downloadHandler, accessRead, "GET",
+		"/api/files/download?path=/Public/Moved/deep.txt", nil)
+	if w.Code != http.StatusOK {
+		t.Errorf("downloading through the link after folder rename = %d, want 200", w.Code)
+	}
+}
+
+func TestMoveCarriesItsShareAlong(t *testing.T) {
+	s, _ := sharedOn(t, "Public/note.txt")
+
+	w, _ := doJSON(t, s.moveHandler, "POST", "/api/files/move",
+		map[string]string{"from": "/Public/note.txt", "to": "/Private/note.txt"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("move = %d, want 200", w.Code)
+	}
+	if got := storedPath(t, s); got != "Private/note.txt" {
+		t.Errorf("share path after move = %q, want Private/note.txt", got)
+	}
+}
+
+func TestDeleteRevokesItsShare(t *testing.T) {
+	s, sh := sharedOn(t, "Public/note.txt")
+
+	w, _ := doJSON(t, s.deleteHandler, "POST", "/api/files/delete",
+		map[string]string{"Path": "/Public/note.txt"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("delete = %d, want 200", w.Code)
+	}
+	if got := storedPath(t, s); got != "" {
+		t.Errorf("share still points at %q after its target was trashed", got)
+	}
+	w = asShare(t, s, sh, s.downloadHandler, accessRead, "GET",
+		"/api/files/download?path=/Public/note.txt", nil)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("revoked token = %d, want 401", w.Code)
+	}
+}
+
+// The link names a path, so whatever later takes that path must not inherit everyone holding it.
+func TestANewFileAtASharedPathInheritsNothing(t *testing.T) {
+	s, sh := sharedOn(t, "Public/note.txt")
+
+	w, _ := doJSON(t, s.renameHandler, "POST", "/api/files/rename",
+		map[string]string{"dir": "/Public", "from": "note.txt", "to": "renamed.txt"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("rename = %d, want 200", w.Code)
+	}
+	secret := filepath.Join(s.cfg.RootDir, "Public", "note.txt")
+	if err := os.WriteFile(secret, []byte("a different file entirely"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	w = asShare(t, s, sh, s.downloadHandler, accessRead, "GET",
+		"/api/files/download?path=/Public/note.txt", nil)
+	if w.Code == http.StatusOK {
+		t.Errorf("the old link read the new file at that path: %q", w.Body.String())
+	}
+}
+
 // statAny is what decides whether a link opens a listing or a file, so both must be right.
 func TestStatAnyDistinguishesFilesFromFolders(t *testing.T) {
 	s, _ := sharedServer(t, shareView)
@@ -368,12 +482,15 @@ func TestStatAnyDistinguishesFilesFromFolders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if isDir, err := s.statAny(context.Background(), res); err != nil || !isDir {
-		t.Errorf("Public: isDir=%v err=%v", isDir, err)
+	if st, err := s.statAny(context.Background(), res); err != nil || !st.IsDir {
+		t.Errorf("Public: isDir=%v err=%v", st.IsDir, err)
 	}
 	res, _ = s.resolve(r, "Public/note.txt")
-	if isDir, err := s.statAny(context.Background(), res); err != nil || isDir {
-		t.Errorf("note.txt: isDir=%v err=%v", isDir, err)
+	// The size and date are what a file link shows in place of a listing row.
+	if st, err := s.statAny(context.Background(), res); err != nil || st.IsDir {
+		t.Errorf("note.txt: isDir=%v err=%v", st.IsDir, err)
+	} else if st.Size != 1 || st.Modified.IsZero() {
+		t.Errorf("note.txt: size=%d modified=%v, want size 1 and a real date", st.Size, st.Modified)
 	}
 	res, _ = s.resolve(r, "Public/missing")
 	if _, err := s.statAny(context.Background(), res); err == nil {

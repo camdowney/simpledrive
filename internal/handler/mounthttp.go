@@ -158,22 +158,23 @@ func (s *server) mkdirUniqueS3(w http.ResponseWriter, r *http.Request, res *reso
 	jsonErr(w, "too many folders with that name", http.StatusConflict)
 }
 
-// renameS3 copies the object or subtree to the new key, then drops the old one.
-func (s *server) renameS3(w http.ResponseWriter, r *http.Request, from, to *resolved) {
+// renameS3 copies to the new key then drops the old; answers the request and reports success.
+func (s *server) renameS3(w http.ResponseWriter, r *http.Request, from, to *resolved) bool {
 	ctx := r.Context()
 	if _, _, err := s.statS3(ctx, to); err == nil {
 		jsonErr(w, "a file or folder with that name already exists", http.StatusConflict)
-		return
+		return false
 	}
 	if err := copyWithin(ctx, from, to); err != nil {
 		s3Fail(w, err)
-		return
+		return false
 	}
 	if err := deleteS3(ctx, from); err != nil {
 		s3Fail(w, err)
-		return
+		return false
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	return true
 }
 
 // thumbS3 caches previews keyed by the object's ETag, so unchanged objects never re-download.

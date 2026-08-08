@@ -546,12 +546,13 @@ func (s *server) renameHandler(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, "names must not contain path separators", http.StatusBadRequest)
 		return
 	}
-	fromRes, err := s.resolve(r, path.Join(body.Dir, body.From))
+	fromRel, toRel := path.Join(body.Dir, body.From), path.Join(body.Dir, body.To)
+	fromRes, err := s.resolve(r, fromRel)
 	if err != nil {
 		jsonErr(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	toRes, err := s.resolve(r, path.Join(body.Dir, body.To))
+	toRes, err := s.resolve(r, toRel)
 	if err != nil {
 		jsonErr(w, err.Error(), http.StatusBadRequest)
 		return
@@ -568,14 +569,19 @@ func (s *server) renameHandler(w http.ResponseWriter, r *http.Request) {
 				jsonErr(w, "a connected bucket can't be renamed through a link", http.StatusForbidden)
 				return
 			}
+			old := fromRes.mnt.Name
 			if err := s.renameMount(fromRes.mnt.ID, body.To); err != nil {
 				jsonErr(w, err.Error(), http.StatusBadRequest)
 				return
 			}
+			// The bucket's name is the first segment of every path inside it, links included.
+			s.retargetShares(old, body.To)
 			writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 			return
 		}
-		s.renameS3(w, r, fromRes, toRes)
+		if s.renameS3(w, r, fromRes, toRes) {
+			s.retargetShares(fromRel, toRel)
+		}
 		return
 	}
 	if toRes.isS3() {
@@ -602,6 +608,7 @@ func (s *server) renameHandler(w http.ResponseWriter, r *http.Request) {
 			jsonErr(w, "server error", http.StatusInternalServerError)
 			return
 		}
+		s.retargetShares(fromRel, toRel)
 		finalAbs = toAbs
 	}
 	if body.Modified != "" {
@@ -656,6 +663,7 @@ func (s *server) moveHandler(w http.ResponseWriter, r *http.Request) {
 			jsonErr(w, err.Error(), s3Status(err))
 			return
 		}
+		s.retargetShares(body.From, body.To)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
@@ -681,6 +689,7 @@ func (s *server) moveHandler(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, "server error", http.StatusInternalServerError)
 		return
 	}
+	s.retargetShares(body.From, body.To)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -830,6 +839,11 @@ func (s *server) deleteHandler(w http.ResponseWriter, r *http.Request) {
 			jsonErr(w, err.Error(), s3Status(err))
 			return
 		}
+		if res.isMountRoot() {
+			s.revokeSharesUnder(res.mnt.Name)
+		} else {
+			s.revokeSharesUnder(body.Path)
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
@@ -844,6 +858,7 @@ func (s *server) deleteHandler(w http.ResponseWriter, r *http.Request) {
 			jsonErr(w, "server error", http.StatusInternalServerError)
 			return
 		}
+		s.revokeSharesUnder(body.Path)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
@@ -855,6 +870,8 @@ func (s *server) deleteHandler(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, "server error", http.StatusInternalServerError)
 		return
 	}
+	// The trash is not a path a link may reach, so a trashed target ends the links to it.
+	s.revokeSharesUnder(body.Path)
 	s.thumbs.invalidateFolder(filepath.Dir(res.abs))
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "trashed": "1"})
 }

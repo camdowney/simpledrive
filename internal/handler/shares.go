@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -77,9 +78,14 @@ func (sh *share) refusal() string {
 	return "this link is view-only"
 }
 
+// within reports whether p is base itself or sits inside it. Both must already be cleaned.
+func within(p, base string) bool {
+	return p == base || strings.HasPrefix(p, base+"/")
+}
+
 // covers reports whether clean (a cleaned, slash-less-prefixed path) is the share or inside it.
 func (sh *share) covers(clean string) bool {
-	return clean == sh.Path || strings.HasPrefix(clean, sh.Path+"/")
+	return within(clean, sh.Path)
 }
 
 // cleanRel normalizes a request path the way resolve does, so both agree on what a path means.
@@ -111,6 +117,44 @@ func (s *server) writeShares(shares []share) error {
 	return writeFileAtomic(s.cfg.SharesPath, data)
 }
 
+// retargetShares follows links whose target moved, so no new file inherits their old path.
+func (s *server) retargetShares(from, to string) {
+	from, to = cleanRel(from), cleanRel(to)
+	if from == "" || from == to {
+		return
+	}
+	s.sharesMu.Lock()
+	defer s.sharesMu.Unlock()
+	shares, err := s.readShares()
+	if err != nil {
+		log.Printf("shares: reading to retarget %s: %v", from, err)
+		return
+	}
+	kept := make([]share, 0, len(shares))
+	moved := false
+	for _, sh := range shares {
+		if !within(sh.Path, from) {
+			kept = append(kept, sh)
+			continue
+		}
+		moved = true
+		if to == "" {
+			continue
+		}
+		sh.Path = to + sh.Path[len(from):]
+		kept = append(kept, sh)
+	}
+	if !moved {
+		return
+	}
+	if err := s.writeShares(kept); err != nil {
+		log.Printf("shares: retargeting %s: %v", from, err)
+	}
+}
+
+// revokeSharesUnder drops the links to something that is no longer at that path at all.
+func (s *server) revokeSharesUnder(p string) { s.retargetShares(p, "") }
+
 func (s *server) lookupShare(token string) (*share, error) {
 	if token == "" {
 		return nil, nil
@@ -129,20 +173,30 @@ func (s *server) lookupShare(token string) (*share, error) {
 	return nil, nil
 }
 
-// statAny reports whether a resolved path exists and whether it is a directory.
-func (s *server) statAny(ctx context.Context, res *resolved) (isDir bool, err error) {
+// statInfo is a listing row for a path with no listing behind it, which is all a file link has.
+type statInfo struct {
+	IsDir    bool      `json:"isDir"`
+	Size     int64     `json:"size"`
+	Modified time.Time `json:"modified"`
+}
+
+// statAny reports whether a resolved path exists, and describes it the way a listing would.
+func (s *server) statAny(ctx context.Context, res *resolved) (statInfo, error) {
 	if res.isS3() {
 		if res.isMountRoot() {
-			return true, nil
+			return statInfo{IsDir: true}, nil
 		}
-		_, isDir, err := s.statS3(ctx, res)
-		return isDir, err
+		obj, isDir, err := s.statS3(ctx, res)
+		if err != nil || isDir {
+			return statInfo{IsDir: isDir}, err
+		}
+		return statInfo{Size: obj.Size, Modified: obj.Modified}, nil
 	}
 	fi, err := os.Stat(res.abs)
 	if err != nil {
-		return false, err
+		return statInfo{}, err
 	}
-	return fi.IsDir(), nil
+	return statInfo{IsDir: fi.IsDir(), Size: fi.Size(), Modified: fi.ModTime()}, nil
 }
 
 // sharesHandler — GET /api/shares lists links, POST creates one, DELETE revokes by id.
@@ -186,13 +240,13 @@ func (s *server) sharesHandler(w http.ResponseWriter, r *http.Request) {
 			jsonErr(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		isDir, err := s.statAny(r.Context(), res)
+		st, err := s.statAny(r.Context(), res)
 		if err != nil {
 			jsonErr(w, "not found", http.StatusNotFound)
 			return
 		}
 		// A drop link is a destination, and a file is not somewhere uploads can land.
-		if body.Mode == shareDrop && !isDir {
+		if body.Mode == shareDrop && !st.IsDir {
 			jsonErr(w, "a drop link needs a folder to collect into", http.StatusBadRequest)
 			return
 		}
@@ -307,16 +361,19 @@ func (s *server) shareInfoHandler(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	isDir, err := s.statAny(r.Context(), res)
+	st, err := s.statAny(r.Context(), res)
 	if err != nil {
 		jsonErr(w, "the shared item no longer exists", http.StatusNotFound)
 		return
 	}
+	// Size and date stand in for the listing row a file link never gets, so it can show details.
 	writeJSON(w, http.StatusOK, map[string]any{
-		"path":  "/" + sh.Path,
-		"name":  path.Base(sh.Path),
-		"mode":  sh.Mode,
-		"isDir": isDir,
+		"path":     "/" + sh.Path,
+		"name":     path.Base(sh.Path),
+		"mode":     sh.Mode,
+		"isDir":    st.IsDir,
+		"size":     st.Size,
+		"modified": st.Modified,
 	})
 }
 

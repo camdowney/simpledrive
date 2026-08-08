@@ -89,6 +89,21 @@ const canEdit = () => !state.share || state.share.mode === "edit"
 // A link's own root stands in for "/" everywhere the owner's drive root would be used.
 const homePath = () => (state.share ? state.share.root : "/")
 
+// A link on one file: no listing behind it, and no folder above it the visitor may see.
+const sharedFile = () => !!state.share && state.share.isDir === false
+
+// The listing row a file link never gets, built from what /api/share/info said about its target.
+const sharedFileEntry = () =>
+  sharedFile()
+    ? {
+        name: state.share.name,
+        dir: parentPath(state.share.root),
+        isDir: false,
+        size: state.share.size,
+        modified: state.share.modified,
+      }
+    : null
+
 const withinHome = (p) => {
   const root = homePath()
   return root === "/" || p === root || p.startsWith(root + "/")
@@ -787,7 +802,8 @@ const showDetails = async (entry, { onRenamed } = {}) => {
     `<div class="detail-row"><span class="detail-label">${k}</span><span class="detail-value">${fmtDate(iso)}</span></div>`
 
   const rel = entryPath(entry)
-  const readOnly = !canEdit()
+  // A file link can't rename its target: the new name falls outside what the link covers.
+  const readOnly = !canEdit() || sharedFile()
   let meta = null
   // The server can't read a vault's files, so everything shown of one comes from its index.
   if (!inVaultIndex(entry)) {
@@ -1969,6 +1985,11 @@ const applyShareChrome = () => {
   }
   hide("#preview-tool-btn")
   hide("#preview-level-btn")
+  // Back would land on the folder the file sits in, which is the owner's and not the link's.
+  if (sharedFile()) {
+    hide("#preview-back-btn")
+    hide("#editor-back-btn")
+  }
 }
 
 // Leaves every view hidden; the route decides which one appears, so no chrome flashes out.
@@ -2252,8 +2273,13 @@ const handleHashNavigation = async ({ pushHash = true } = {}) => {
   if (!data) return
 
   if (data.notDir) {
-    const dir = hashPath.slice(0, hashPath.lastIndexOf("/")) || "/"
     const name = hashPath.split("/").pop()
+    // A file link can't list the folder this lives in, so open it on its own instead.
+    if (sharedFile()) {
+      openLoneFile(hashPath, name)
+      return
+    }
+    const dir = hashPath.slice(0, hashPath.lastIndexOf("/")) || "/"
     await navigate(dir, { pushHash })
     const entry = state.entries.find((e) => e.name === name)
     if (entry) openEntry(entry)
@@ -2854,6 +2880,19 @@ const selectAll = () => {
   updateSelectionUI()
 }
 
+// Opens a file from its path alone, for the callers that have no listing row to hand over.
+const openLoneFile = (path, name) => {
+  const type = fileType(name)
+  if (type === "pdf" && !EMBEDS_PDF) {
+    const url = `/api/files/download?path=${encodeURIComponent(path)}&inline=1`
+    // Deep links reach here outside a user gesture, where the popup blocker kills window.open.
+    if (!window.open(url, "_blank")) location.href = url
+    return
+  }
+  if (isMedia(name) || type === "pdf" || type === "archive") openPreview(path, name, type)
+  else openEditor(path, name)
+}
+
 const openEntry = async (entry) => {
   if (entry.isDir) {
     const newPath = relPath(entry.name)
@@ -2861,22 +2900,14 @@ const openEntry = async (entry) => {
     return
   }
   const rel = relPath(entry.name)
-  const type = fileType(entry.name)
-  if (type === "pdf" && !EMBEDS_PDF) {
-    let url = `/api/files/download?path=${encodeURIComponent(rel)}&inline=1`
-    if (state.inVault) {
-      url = await vaultBlobUrl(entry.id).catch((e) => toast(e.message, true))
-      if (!url) return
-    }
-    // Deep links reach here outside a user gesture, where the popup blocker kills window.open.
+  // A vault's PDF has to be handed over as decrypted bytes, since the URL would serve ciphertext.
+  if (fileType(entry.name) === "pdf" && !EMBEDS_PDF && state.inVault) {
+    const url = await vaultBlobUrl(entry.id).catch((e) => toast(e.message, true))
+    if (!url) return
     if (!window.open(url, "_blank")) location.href = url
     return
   }
-  if (isMedia(entry.name) || type === "pdf" || type === "archive") {
-    openPreview(rel, entry.name, type)
-  } else {
-    openEditor(rel, entry.name)
-  }
+  openLoneFile(rel, entry.name)
 }
 
 const moveEntriesToDir = async (entries, destDir) => {
@@ -4192,14 +4223,27 @@ const setupColorPicker = (mdWrap, toolbarEl, wwView) => {
 
 const currentEditorEntry = () => state.entries.find((e) => relPath(e.name) === state.editorPath)
 
-// A shared single file arrives with no listing behind it, leaving its menu nothing to act on.
+// A shared file has no listing row; only Download and Details work without one.
 const updateEditorOptions = () => {
   const entry = currentEditorEntry()
-  document.querySelector(".editor-options-wrap").classList.toggle("hidden", !entry)
-  if (!entry) return
-  // Both would write this file's cleartext name to the server, which is the vault's whole point.
-  document.getElementById("editor-tags-btn").classList.toggle("hidden", state.inVault)
-  document.getElementById("editor-share-btn").classList.toggle("hidden", state.inVault)
+  const wrap = document.querySelector(".editor-options-wrap")
+  if (!entry) {
+    const lone = sharedFile()
+    wrap.classList.toggle("hidden", !lone)
+    if (!lone) return
+    for (const el of wrap.querySelectorAll(".popover-item")) el.classList.add("hidden")
+    document.getElementById("editor-details-btn").classList.remove("hidden")
+    const dl = document.getElementById("editor-download-btn")
+    dl.classList.remove("hidden")
+    dl.href = `/api/files/download?path=${encodeURIComponent(state.editorPath)}`
+    dl.download = baseName(state.editorPath)
+    return
+  }
+  wrap.classList.remove("hidden")
+  // A vault's point is keeping this name off the server; tags and links are the owner's alone.
+  const withheld = state.inVault || !!state.share
+  document.getElementById("editor-tags-btn").classList.toggle("hidden", withheld)
+  document.getElementById("editor-share-btn").classList.toggle("hidden", withheld)
   const dl = document.getElementById("editor-download-btn")
   dl.download = entry.name
   if (state.inVault) {
@@ -4210,6 +4254,17 @@ const updateEditorOptions = () => {
     return
   }
   dl.href = `/api/files/download?path=${encodeURIComponent(state.editorPath)}`
+}
+
+// Every doc change dispatches, so refuse there; selection-only ones pass, to keep text copyable.
+const sealEditorView = (view) => {
+  view.setProps({ editable: () => false })
+  // setProps alone leaves the attribute as it was, and the browser goes by the attribute.
+  view.dom.contentEditable = "false"
+  const pass = view.dispatch.bind(view)
+  view.dispatch = (tr) => {
+    if (!tr.docChanged) pass(tr)
+  }
 }
 
 const openEditor = async (path, name) => {
@@ -4336,7 +4391,8 @@ const openEditor = async (path, name) => {
       // Toast UI has no read-only mode; a view-only link gets the rendered doc without the tools.
       if (!canEdit()) {
         mdWrap.classList.add("md-readonly")
-        if (wwView) wwView.dom.contentEditable = "false"
+        // The source view is sealed too: it sits behind a mode switch we merely hide.
+        for (const v of [wwView, state.mdeInstance.mdEditor?.view]) if (v) sealEditorView(v)
       }
 
       // Reset ProseMirror history so undo can't wipe the initially loaded content.
@@ -4462,6 +4518,8 @@ const saveEditor = async () => {
 
 // Go back through history when leaving a view so Back doesn't reopen it.
 const goBackToBrowser = () => {
+  // No listing to fall back to: Esc and the swipes would strand the visitor outside the link.
+  if (sharedFile()) return
   // Back re-routes asynchronously; without this the player runs on until the listing lands.
   silencePreview()
   if (state.viewPushedHistory) {
@@ -4719,7 +4777,17 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
   renderPreviewBar(path, type)
   updatePreviewNav()
   updatePreviewTool(name)
+  trimEntrylessPreviewOptions()
   if (type === "audio") warmNeighborGains()
+}
+
+// Rename and Delete need a listing row; Download and Details work from the path and the link.
+const trimEntrylessPreviewOptions = () => {
+  if (!sharedFile()) return
+  const menu = document.getElementById("preview-options")
+  for (const el of menu.querySelectorAll(".popover-item")) el.classList.add("hidden")
+  for (const id of ["preview-download-btn", "preview-details-btn"])
+    document.getElementById(id).classList.remove("hidden")
 }
 
 // The viewer's chrome: the open file's tags in the top bar, and the bottom bar's playback controls
@@ -4750,12 +4818,14 @@ const updatePreviewNav = () => {
 // The tool item names whatever the open file supports, and hides when nothing fits it.
 // Volume matching sits below it, and only for the file type it applies to.
 const updatePreviewTool = (name) => {
+  // Runs on every open, so it must re-apply what applyShareChrome hid rather than undo it.
+  const owned = !state.share
   const btn = document.getElementById("preview-tool-btn")
-  const tool = canEdit() ? mediaToolFor(name) : null
+  const tool = owned && canEdit() ? mediaToolFor(name) : null
   btn.classList.toggle("hidden", !tool)
   if (tool) document.getElementById("preview-tool-label").textContent = tool.label
   // A share link would hand out the plaintext the vault exists to keep in this tab.
-  document.getElementById("preview-share-btn").classList.toggle("hidden", state.inVault)
+  document.getElementById("preview-share-btn").classList.toggle("hidden", state.inVault || !owned)
 
   const level = document.getElementById("preview-level-btn")
   const audio = fileType(name) === "audio" && !state.share && !state.inVault && !VOLUME_LOCKED
@@ -6673,7 +6743,14 @@ const initShare = async () => {
     showShareGone()
     return
   }
-  state.share = { root: info.path, name: info.name, mode: info.mode }
+  state.share = {
+    root: info.path,
+    name: info.name,
+    mode: info.mode,
+    isDir: info.isDir,
+    size: info.size,
+    modified: info.modified,
+  }
   // Whatever this browser cached is the owner's, from their own session on this device.
   state.tags = []
   state.fileTags = {}
@@ -6686,13 +6763,9 @@ const initShare = async () => {
     return
   }
   if (!info.isDir) {
-    // A shared file has no folder to browse: open it from the listing of the folder it lives in.
-    const dir = info.path.slice(0, info.path.lastIndexOf("/")) || "/"
-    const type = fileType(info.name)
-    if (isMedia(info.name) || type === "pdf" || type === "archive")
-      openPreview(info.path, info.name, type)
-    else openEditor(info.path, info.name)
-    state.currentPath = dir
+    // The file stands in for the folder a link lands on; there is nothing above it to go to.
+    state.currentPath = info.path
+    openLoneFile(info.path, info.name)
     return
   }
   // Canonicalize older link forms in place: root-absolute hashes, stray trailing slashes.
@@ -7037,7 +7110,7 @@ const init = async () => {
   })
 
   document.getElementById("editor-details-btn").addEventListener("click", () => {
-    const entry = currentEditorEntry()
+    const entry = currentEditorEntry() || sharedFileEntry()
     if (entry) showDetails(entry, { onRenamed: reopenEditorRenamed })
   })
 
@@ -7143,7 +7216,7 @@ const init = async () => {
   })
 
   document.getElementById("preview-details-btn").addEventListener("click", () => {
-    const entry = currentPreviewEntry()
+    const entry = currentPreviewEntry() || sharedFileEntry()
     if (entry) showDetails(entry, { onRenamed: reopenRenamed })
   })
 
