@@ -1,8 +1,8 @@
 # SimpleDrive
 
 SimpleDrive is a self-hosted personal cloud drive written in Go. It serves a
-folder on your machine through a fast web UI where you can browse, upload,
-preview, and share your files. Deployment is a single binary; there is no database, Docker setup, or required runtime dependencies.
+folder on your machine through a fast web UI where you can browse, edit, and share your files.
+Deployment is a single binary; there is no database, Docker setup, or required runtime dependencies.
 
 ![The SimpleDrive file browser](images/overview.png)
 
