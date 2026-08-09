@@ -981,9 +981,6 @@ html.boot-login #login-view {
   cursor: pointer;
   border-bottom: 1px solid var(--border);
   position: relative;
-  /* Off-screen rows skip layout; 24px is .file-media, which fixes the row height at every width. */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 24px;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
