@@ -107,7 +107,7 @@ func New(cfg *config.Config, webFS embed.FS) http.Handler {
 	// Root scope, so one worker covers the whole app; the version query busts it per build.
 	s.mux.HandleFunc("/sw.js", s.serviceWorkerHandler)
 
-	return securityHeaders(s.mux)
+	return securityHeaders(compress(s.mux))
 }
 
 // Restrictive CSP: script-src 'self' blocks uploaded-file XSS; 'unsafe-eval' is for the editor.

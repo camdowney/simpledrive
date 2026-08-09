@@ -1,5 +1,51 @@
 "use strict"
 
+// ─── Listing cache ────────────────────────────────────────────────────────────
+
+// A folder visited before paints from here at once; the fetch behind it only reconciles what moved.
+const MAX_CACHED_LISTINGS = 40
+const listingCache = new Map()
+
+// Bumped per navigation, so a listing that lands after the user has moved on can't paint over them.
+let navSeq = 0
+
+const cacheListing = (path, data) => {
+  // Re-inserted so the Map's insertion order stays least-recently-used first.
+  listingCache.delete(path)
+  listingCache.set(path, data)
+  if (listingCache.size > MAX_CACHED_LISTINGS) listingCache.delete(listingCache.keys().next().value)
+}
+
+// Any write can add, rename or remove rows in folders other than the one it happened in.
+const invalidateListings = () => listingCache.clear()
+
+const fetchListing = async (path) => {
+  const data = await api("GET", `/api/files?path=${encodeURIComponent(path)}`)
+  // A name that turned out to be a file has no listing worth keeping.
+  if (data && !data.notDir) cacheListing(path, data)
+  return data
+}
+
+// Two at a time: a warmed folder must not queue up behind others in front of the one being opened.
+const MAX_PREFETCHES = 2
+let prefetching = 0
+
+// Warmed on the press that selects a folder, which is a whole click ahead of the one that opens it.
+const prefetchListing = (path) => {
+  if (prefetching >= MAX_PREFETCHES || listingCache.has(path) || Vault.covers(path)) return
+  prefetching++
+  fetchListing(path)
+    .catch(() => {})
+    .finally(() => prefetching--)
+}
+
+// Paints the fresh listing over the cached one on screen, leaving selection and scroll where set.
+const refreshListing = (path, cached, data) => {
+  if (state.currentPath !== path) return
+  if (JSON.stringify(data) === JSON.stringify(cached)) return
+  applyListing(path, data, { pushHash: false, keepSelection: true })
+}
+
 // ─── File Browser ─────────────────────────────────────────────────────────────
 
 const handleHashNavigation = async ({ pushHash = true } = {}) => {
@@ -18,11 +64,23 @@ const handleHashNavigation = async ({ pushHash = true } = {}) => {
     return
   }
 
+  const seq = ++navSeq
+  const cached = listingCache.get(hashPath)
+  if (cached) {
+    showBrowser({ pushHash: false })
+    applyListing(hashPath, cached, { pushHash })
+  }
+
   // Name alone can't tell folder from file; the listing resolves it.
   let data
   try {
-    data = await api("GET", `/api/files?path=${encodeURIComponent(hashPath)}`)
+    data = await fetchListing(hashPath)
   } catch (e) {
+    // What is already on screen is this folder; a failed refresh of it is not a reason to leave.
+    if (cached) {
+      toast(e.message, true)
+      return
+    }
     // A deep link into a locked vault names folders only its index knows; land on the vault itself.
     const climbed = await climbToVault(hashPath)
     if (!climbed) {
@@ -35,7 +93,7 @@ const handleHashNavigation = async ({ pushHash = true } = {}) => {
     replacePathHash(climbed.path)
     return
   }
-  if (!data) return
+  if (!data || seq !== navSeq) return
 
   if (data.notDir) {
     const name = hashPath.split("/").pop()
@@ -52,7 +110,8 @@ const handleHashNavigation = async ({ pushHash = true } = {}) => {
   }
 
   showBrowser({ pushHash: false })
-  applyListing(hashPath, data, { pushHash })
+  if (cached) refreshListing(hashPath, cached, data)
+  else applyListing(hashPath, data, { pushHash })
 }
 
 // Walk up from a path the server wouldn't list, looking for the vault folder it must live in.
@@ -81,7 +140,7 @@ const applyVaultListing = (path, { pushHash = true } = {}) => {
   applyListing(path, data, { pushHash })
 }
 
-const applyListing = (path, data, { pushHash = true } = {}) => {
+const applyListing = (path, data, { pushHash = true, keepSelection = false } = {}) => {
   state.currentPath = path
   state.inVault = data.inVault === true
   // Only the vault's own folder is a real directory; a subfolder's listing carries its root along.
@@ -95,7 +154,8 @@ const applyListing = (path, data, { pushHash = true } = {}) => {
   applyEntryFilters()
   loadFolderPrefs()
   sortEntries()
-  clearSelection()
+  if (keepSelection) pruneSelection()
+  else clearSelection()
   if (pushHash) pushPathHash(path)
   renderBreadcrumb()
   updateViewToggle()
@@ -133,10 +193,15 @@ const navigate = async (path, { pushHash = true } = {}) => {
     applyVaultListing(path, { pushHash })
     return
   }
+  const seq = ++navSeq
+  // The folder is on screen before the round trip starts; what comes back only reconciles it.
+  const cached = listingCache.get(path)
+  if (cached) applyListing(path, cached, { pushHash })
   try {
-    const data = await api("GET", `/api/files?path=${encodeURIComponent(path)}`)
-    if (!data) return
-    applyListing(path, data, { pushHash })
+    const data = await fetchListing(path)
+    if (!data || seq !== navSeq) return
+    if (cached) refreshListing(path, cached, data)
+    else applyListing(path, data, { pushHash })
   } catch (e) {
     toast(e.message, true)
   }
@@ -344,7 +409,8 @@ const renderGrid = (container) =>
   )
 
 // Lazy thumbnail loader: loads near-viewport images a few at a time.
-const MAX_CONCURRENT_THUMBS = 3
+// Six is what a browser will open to one host anyway; fewer just leaves the connections idle.
+const MAX_CONCURRENT_THUMBS = 6
 // Tracked as nodes, not a count, so a re-render can drop the ones that will never settle.
 const inFlightThumbs = new Set()
 const thumbQueue = []
@@ -489,7 +555,10 @@ const observeThumbs = (container) => {
 
 const bindFileItem = (el, entry) => {
   el.__entry = entry
-  el.addEventListener("pointerdown", (e) => beginGesture(e, el, el.__entry))
+  el.addEventListener("pointerdown", (e) => {
+    if (el.__entry.isDir) prefetchListing(relPath(el.__entry.name))
+    beginGesture(e, el, el.__entry)
+  })
 
   el.addEventListener("click", (e) => {
     if (suppressNextClick) {
@@ -623,6 +692,16 @@ const updateSelectionUI = () => {
 
 const clearSelection = () => {
   state.selected.clear()
+  state.lastClickIdx = null
+  updateSelectionHighlights()
+  updateSelectionUI()
+}
+
+// A refreshed listing may have lost rows that were selected; what survives stays selected.
+const pruneSelection = () => {
+  const names = new Set(state.entries.map((e) => e.name))
+  for (const name of state.selected) if (!names.has(name)) state.selected.delete(name)
+  // The rows moved, so the anchor an index stood for is no longer the one it points at.
   state.lastClickIdx = null
   updateSelectionHighlights()
   updateSelectionUI()

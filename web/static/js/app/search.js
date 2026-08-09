@@ -466,6 +466,11 @@ const openFolderEntry = async () => {
 const wireBreadcrumb = () => {
   const bc = document.getElementById("breadcrumb")
   const popover = document.getElementById("crumb-popover")
+  // A crumb opens on the click its press begins, so the listing has that press to travel in.
+  bc.addEventListener("pointerdown", (e) => {
+    const a = e.target.closest("a[data-path]")
+    if (a) prefetchListing(a.dataset.path)
+  })
   bc.addEventListener("click", (e) => {
     const a = e.target.closest("a[data-path]")
     if (a) {
