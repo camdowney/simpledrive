@@ -106,6 +106,7 @@ type thumbCache struct {
 	durMu    sync.Mutex
 	hashes   map[string]hashedFile
 	previews map[string]folderPreview
+	sizes    map[string]sizedImage
 }
 
 // hashedFile memoizes a file's content hash while it looks unchanged.
@@ -113,6 +114,13 @@ type hashedFile struct {
 	size  int64
 	mtime time.Time
 	hash  string
+}
+
+// sizedImage memoizes a picture's pixel size while it looks unchanged; 0x0 means undecodable.
+type sizedImage struct {
+	size  int64
+	mtime time.Time
+	w, h  int
 }
 
 // folderPreview memoizes a folder's thumbnail child ("" = none) while its mtime holds.
@@ -136,7 +144,39 @@ func newThumbCache(dir string) *thumbCache {
 		loudSem:  make(chan struct{}, loudnessConcurrency),
 		hashes:   map[string]hashedFile{},
 		previews: map[string]folderPreview{},
+		sizes:    map[string]sizedImage{},
 	}
+}
+
+// imageSize reports a picture's pixel size, memoized: every listing asks it of every image it shows.
+func (c *thumbCache) imageSize(abs string, fi os.FileInfo) (int, int) {
+	c.mu.Lock()
+	cached, ok := c.sizes[abs]
+	c.mu.Unlock()
+	if ok && cached.size == fi.Size() && cached.mtime.Equal(fi.ModTime()) {
+		return cached.w, cached.h
+	}
+	var m fileMeta
+	readImageMeta(abs, fi.ModTime(), &m)
+
+	c.mu.Lock()
+	if len(c.sizes) >= maxHashMemo {
+		clear(c.sizes)
+	}
+	c.sizes[abs] = sizedImage{size: fi.Size(), mtime: fi.ModTime(), w: m.Width, h: m.Height}
+	c.mu.Unlock()
+	return m.Width, m.Height
+}
+
+// knownImageSize is imageSize without the decode: what a listing can answer for free.
+func (c *thumbCache) knownImageSize(abs string, fi os.FileInfo) (int, int, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	cached, ok := c.sizes[abs]
+	if !ok || cached.size != fi.Size() || !cached.mtime.Equal(fi.ModTime()) {
+		return 0, 0, false
+	}
+	return cached.w, cached.h, true
 }
 
 // thumbHandler — GET /api/files/thumb?path=<rel> serves a cached JPEG preview.
@@ -494,6 +534,9 @@ func (c *thumbCache) contentHash(abs string, fi os.FileInfo) (string, error) {
 type durInfo struct {
 	Duration int    `json:"duration,omitempty"`
 	Taken    string `json:"taken,omitempty"`
+	// An S3 image's pixel size, kept from the download the thumb already paid for.
+	Width  int `json:"width,omitempty"`
+	Height int `json:"height,omitempty"`
 	// Integrated loudness in LUFS. Measured marks the attempt done: an unmeasurable file has no value.
 	LUFS         float64 `json:"lufs,omitempty"`
 	LUFSMeasured bool    `json:"lufsMeasured,omitempty"`

@@ -350,6 +350,85 @@ func TestMetaFromMount(t *testing.T) {
 	}
 }
 
+// The viewer sizes its stand-in from meta on every open, so on a bucket it must never download.
+func TestMetaFastFromMountUsesSidecar(t *testing.T) {
+	fake := newFakeS3("my-bucket")
+	defer fake.close()
+	fake.put("photo.jpg", string(jpegWithExif(t, 120, 80, buildExifTIFF(1, "2020:06:07 08:09:10"))))
+	s := mountedServer(t, fake, "")
+
+	get := func() (fileMeta, int) {
+		t.Helper()
+		fake.mu.Lock()
+		before := len(fake.signed)
+		fake.mu.Unlock()
+		w := httptest.NewRecorder()
+		s.metaHandler(w, httptest.NewRequest("GET", "/api/files/meta?path=/Bucket/photo.jpg&fast=1", nil))
+		if w.Code != 200 {
+			t.Fatalf("meta status %d: %s", w.Code, w.Body)
+		}
+		var m fileMeta
+		if err := json.Unmarshal(w.Body.Bytes(), &m); err != nil {
+			t.Fatal(err)
+		}
+		fake.mu.Lock()
+		defer fake.mu.Unlock()
+		return m, len(fake.signed) - before
+	}
+
+	// Nothing has read the object yet, so there is no size to report and none worth fetching for.
+	if m, reqs := get(); m.Width != 0 || reqs != 1 {
+		t.Fatalf("cold fast meta = %dx%d in %d requests, want 0x0 in 1 (a HEAD)", m.Width, m.Height, reqs)
+	}
+
+	w := httptest.NewRecorder()
+	s.thumbHandler(w, httptest.NewRequest("GET", "/api/files/thumb?path=/Bucket/photo.jpg", nil))
+	if w.Code != 200 {
+		t.Fatalf("thumb status %d: %s", w.Code, w.Body)
+	}
+
+	if m, reqs := get(); m.Width != 120 || m.Height != 80 || reqs != 1 {
+		t.Fatalf("warm fast meta = %dx%d in %d requests, want 120x80 in 1 (a HEAD)", m.Width, m.Height, reqs)
+	}
+}
+
+// A bucket listing can't open its objects, so a built thumb's sidecar is where the size comes from.
+func TestMountListingCarriesSidecarDims(t *testing.T) {
+	fake := newFakeS3("my-bucket")
+	defer fake.close()
+	fake.put("photo.jpg", string(jpegWithExif(t, 120, 80, buildExifTIFF(1, "2020:06:07 08:09:10"))))
+	s := mountedServer(t, fake, "")
+
+	dims := func() (int, int) {
+		t.Helper()
+		_, out := doJSON(t, s.filesHandler, "GET", "/api/files?path=/Bucket", nil)
+		for _, e := range out["entries"].([]any) {
+			m := e.(map[string]any)
+			if m["name"] == "photo.jpg" {
+				w, _ := m["width"].(float64)
+				h, _ := m["height"].(float64)
+				return int(w), int(h)
+			}
+		}
+		t.Fatal("photo.jpg missing from listing")
+		return 0, 0
+	}
+
+	if w, h := dims(); w != 0 || h != 0 {
+		t.Fatalf("cold listing = %dx%d, want no size before a thumb was built", w, h)
+	}
+
+	w := httptest.NewRecorder()
+	s.thumbHandler(w, httptest.NewRequest("GET", "/api/files/thumb?path=/Bucket/photo.jpg", nil))
+	if w.Code != 200 {
+		t.Fatalf("thumb status %d: %s", w.Code, w.Body)
+	}
+
+	if w, h := dims(); w != 120 || h != 80 {
+		t.Fatalf("warm listing = %dx%d, want 120x80", w, h)
+	}
+}
+
 func TestMetaVideoFromMountUsesSidecar(t *testing.T) {
 	fake := newFakeS3("my-bucket")
 	defer fake.close()

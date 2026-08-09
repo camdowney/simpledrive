@@ -14,6 +14,7 @@ const prefetchNeighborDisplays = () => {
 }
 
 const THUMB_MAX = 320 // the server's thumb cap; a thumb under it was never scaled, so is the original
+const DISPLAY_MAX = 1920 // the server's display cap; anything larger came back as the original
 
 // A thumb stands in on the full image's rect, which would stretch a small original to that box.
 const pinSmallStandIn = (img) => {
@@ -26,7 +27,53 @@ const pinSmallStandIn = (img) => {
   else img.addEventListener("load", pin, { once: true })
 }
 
-const DISPLAY_MAX = 1920 // the server's display cap; anything larger came back as the original
+// Keyed by version-stamped path, and holding promises: a listed size is one that resolved already.
+const imageDims = new Map()
+const dimsKey = (entry, path) => `${path}|${entryVer(entry)}`
+
+// The listing carries what the server knew without opening anything; the rest is asked for per file.
+const noteListedDims = (entries) => {
+  for (const e of entries)
+    if (e.width && e.height)
+      imageDims.set(dimsKey(e, entryPath(e)), Promise.resolve({ w: e.width, h: e.height }))
+}
+
+// fast=1 reads a header or a sidecar, never the whole picture.
+const fetchImageDims = (entry, path) => {
+  const key = dimsKey(entry, path)
+  if (!imageDims.has(key))
+    imageDims.set(
+      key,
+      api("GET", `/api/files/meta?path=${encodeURIComponent(path)}&fast=1`)
+        .then((m) => (m.width && m.height ? { w: m.width, h: m.height } : null))
+        .catch(() => null)
+    )
+  return imageDims.get(key)
+}
+
+// Both halves of a neighbour's stand-in, warmed on open: paging can outrun a thumb and its size.
+const warmNeighborStandIns = () => {
+  if (state.inVault) return
+  for (const delta of [1, -1]) {
+    const e = previewNeighbor(delta)
+    if (!e || fileType(e.name) !== "image") continue
+    const at = entryPath(e)
+    const { thumb } = previewSrcs(e, at, e.name, "image")
+    if (!thumb) continue
+    new Image().src = thumb // the very URL the stand-in will carry, so it paints from cache
+    fetchImageDims(e, at)
+  }
+}
+
+// A capped thumb says nothing about the original's size, so ask, and hold the box to the answer.
+const pinStandIn = (img, entry, path, capped) =>
+  fetchImageDims(entry, path).then((d) => {
+    if (!d || !img.isConnected) return
+    // A big photo is painted as the 1920px re-encode, so that, not the original, is the size to hold.
+    const scale = capped ? Math.min(1, DISPLAY_MAX / Math.max(d.w, d.h)) : 1
+    img.style.maxWidth = `${Math.round(d.w * scale)}px`
+    img.style.maxHeight = `${Math.round(d.h * scale)}px`
+  })
 
 // An unbuilt display redirects to the original, which iOS repaints dark on transform; poll for it.
 const upgradeToDisplay = async (img, displayUrl) => {
@@ -124,7 +171,10 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
       ? `<img class="preview-placeholder" src="${esc(thumbUrl)}" alt="">`
       : ""
     const standIn = body.querySelector(".preview-placeholder")
-    if (standIn) pinSmallStandIn(standIn)
+    if (standIn) {
+      pinSmallStandIn(standIn)
+      pinStandIn(standIn, entry, path, !!displayUrl)
+    }
   } else if (type === "video") {
     const poster = thumbUrl ? ` poster="${esc(thumbUrl)}"` : ""
     body.innerHTML = `<video controls autoplay playsinline preload="metadata"${poster}><source src="${esc(url)}"><p>Your browser does not support this video.</p></video>`
@@ -217,6 +267,7 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
   updatePreviewNav()
   updatePreviewTool(name)
   trimEntrylessPreviewOptions()
+  warmNeighborStandIns()
   if (type === "audio") warmNeighborGains()
 }
 
@@ -365,7 +416,8 @@ const setupPreviewSwipe = () => {
     for (const delta of [-1, 1]) {
       const entry = neighbor(delta)
       if (!entry) continue
-      const html = peekHtml(entry, fileType(entry.name))
+      const type = fileType(entry.name)
+      const html = peekHtml(entry, type)
       if (!html) continue
       const pane = document.createElement("div")
       pane.className = "preview-peek"
@@ -374,6 +426,9 @@ const setupPreviewSwipe = () => {
       pane.innerHTML = html
       const standIn = pane.querySelector(".preview-placeholder")
       if (standIn) pinSmallStandIn(standIn)
+      // A video's poster isn't pinned: the player fills the rect whatever the file's own size is.
+      if (standIn && type === "image")
+        pinStandIn(standIn, entry, relPath(entry.name), DISPLAY_EXTS.includes(extOf(entry.name)))
       body.appendChild(pane)
     }
   }

@@ -267,12 +267,18 @@ func (s *server) displayFromS3(ctx context.Context, res *resolved, hash string) 
 		return err
 	}
 	defer os.Remove(tmp)
+	s.sidecarImageDims(tmp, hash)
 	return generateOutputs(tmp, outs)
 }
 
 // s3ThumbHash keys the thumb cache (and its sidecars) for an object; ETag+size track content.
 func s3ThumbHash(res *resolved, obj *s3.Object) string {
-	sum := sha256.Sum256([]byte(res.mnt.Bucket + "\x00" + res.key() + "\x00" + obj.ETag + "\x00" + fmt.Sprint(obj.Size)))
+	return s3ObjectHash(res.mnt.Bucket, res.key(), obj.ETag, obj.Size)
+}
+
+// s3ObjectHash is s3ThumbHash's plain form, for a listing that holds keys rather than resolved paths.
+func s3ObjectHash(bucket, key, etag string, size int64) string {
+	sum := sha256.Sum256([]byte(bucket + "\x00" + key + "\x00" + etag + "\x00" + fmt.Sprint(size)))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -305,7 +311,19 @@ func (s *server) thumbFromS3(ctx context.Context, res *resolved, hash, cachePath
 		return err
 	}
 	defer os.Remove(tmp)
+	s.sidecarImageDims(tmp, hash)
 	return generateOutputs(tmp, outs)
+}
+
+// sidecarImageDims keeps a pixel size off the download a thumb already paid for, so /meta needn't.
+func (s *server) sidecarImageDims(tmp, hash string) {
+	// Dimensions only: the zero mod time here would clamp any EXIF date to nonsense.
+	var dims fileMeta
+	readImageMeta(tmp, time.Time{}, &dims)
+	if dims.Width == 0 {
+		return
+	}
+	s.thumbs.updateDur(hash, func(di *durInfo) { di.Width, di.Height = dims.Width, dims.Height })
 }
 
 // fetchS3Temp downloads an object to a temp file whose extension the decoders can sniff.
@@ -331,7 +349,7 @@ func (s *server) fetchS3Temp(ctx context.Context, res *resolved) (string, error)
 }
 
 // metaS3 reports an object's timestamp and, for images, its dimensions and EXIF capture time.
-func (s *server) metaS3(w http.ResponseWriter, r *http.Request, res *resolved) {
+func (s *server) metaS3(w http.ResponseWriter, r *http.Request, res *resolved, fast bool) {
 	obj, err := res.cli.Head(r.Context(), res.key())
 	if err != nil {
 		s3Fail(w, err)
@@ -346,9 +364,15 @@ func (s *server) metaS3(w http.ResponseWriter, r *http.Request, res *resolved) {
 	}
 	switch ext := strings.ToLower(filepath.Ext(res.rest)); {
 	case imageThumbExts[ext] && obj.Size <= thumbMaxSourceSize:
-		if tmp, err := s.fetchS3Temp(r.Context(), res); err == nil {
+		hash := s3ThumbHash(res, obj)
+		// fast=1 promises no download, so it answers from what the thumb pass sidecared, or not at all.
+		if fast {
+			di, _ := s.thumbs.readDur(hash)
+			meta.Width, meta.Height = di.Width, di.Height
+		} else if tmp, err := s.fetchS3Temp(r.Context(), res); err == nil {
 			readImageMeta(tmp, modTime, &meta)
 			os.Remove(tmp)
+			s.thumbs.updateDur(hash, func(di *durInfo) { di.Width, di.Height = meta.Width, meta.Height })
 		}
 	case rawThumbExts[ext]:
 		readRawMeta(s3ReaderAt{ctx: r.Context(), res: res}, obj.Size, modTime, &meta)

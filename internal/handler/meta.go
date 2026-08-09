@@ -21,6 +21,7 @@ type fileMeta struct {
 }
 
 // metaHandler — GET /api/files/meta?path=<rel> returns created, and an image's size and EXIF date.
+// fast=1 caps the cost at local header reads: a bucket answers from sidecars or leaves fields unset.
 func (s *server) metaHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -33,7 +34,7 @@ func (s *server) metaHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if res.isS3() {
-		s.metaS3(w, r, res)
+		s.metaS3(w, r, res, r.URL.Query().Get("fast") == "1")
 		return
 	}
 	abs := res.abs

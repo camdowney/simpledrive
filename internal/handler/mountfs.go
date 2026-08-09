@@ -164,12 +164,20 @@ func (s *server) listS3(ctx context.Context, r *resolved) ([]entry, error) {
 		if name == "" || strings.HasSuffix(name, "/") {
 			continue
 		}
-		entries = append(entries, entry{
+		e := entry{
 			Name:     name,
 			Size:     o.Size,
 			Modified: o.Modified.UTC(),
 			MimeType: mime.TypeByExtension(filepath.Ext(name)),
-		})
+		}
+		// Sidecared when the thumb was built; reading the object itself for a size is not worth it.
+		if imageThumbExts[strings.ToLower(filepath.Ext(name))] && s.thumbs != nil {
+			hash := s3ObjectHash(r.mnt.Bucket, o.Key, o.ETag, o.Size)
+			if di, ok := s.thumbs.readDur(hash); ok {
+				e.Width, e.Height = di.Width, di.Height
+			}
+		}
+		entries = append(entries, e)
 	}
 	return entries, nil
 }

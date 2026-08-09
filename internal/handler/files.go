@@ -28,10 +28,16 @@ type entry struct {
 	IsTrash bool `json:"isTrash,omitempty"`
 	// IsVault marks an encrypted folder, which the client opens with a passphrase, not a listing.
 	IsVault bool `json:"isVault,omitempty"`
+	// A picture's pixel size, so the viewer's thumb stand-in holds the rect the full image will fill.
+	Width  int `json:"width,omitempty"`
+	Height int `json:"height,omitempty"`
 }
 
 // maxEditableSize caps what the text editor will load, on either backend.
 const maxEditableSize = 10 << 20
+
+// listingDimsBudget caps the image headers one listing reads before handing the rest to the backfill.
+const listingDimsBudget = 400
 
 // underRoot reports whether abs is the root dir or inside it.
 func (s *server) underRoot(abs string) bool {
@@ -140,6 +146,9 @@ func (s *server) filesHandler(w http.ResponseWriter, r *http.Request) {
 
 	atRoot := abs == s.cfg.RootDir
 	entries := make([]entry, 0, len(infos))
+	// Decoding headers is cheap but not free; past the budget the rest fills in behind the response.
+	budget := listingDimsBudget
+	var cold []string
 	for _, info := range infos {
 		// Half-finished uploads are the server's own scratch space, not something to browse.
 		if atRoot && info.Name() == uploadsDirName {
@@ -157,6 +166,17 @@ func (s *server) filesHandler(w http.ResponseWriter, r *http.Request) {
 		if !info.IsDir() {
 			e.Size = fi.Size()
 			e.MimeType = mime.TypeByExtension(filepath.Ext(info.Name()))
+			if imageThumbExts[strings.ToLower(filepath.Ext(info.Name()))] {
+				child := filepath.Join(abs, info.Name())
+				if w, h, ok := s.thumbs.knownImageSize(child, fi); ok {
+					e.Width, e.Height = w, h
+				} else if budget > 0 {
+					budget--
+					e.Width, e.Height = s.thumbs.imageSize(child, fi)
+				} else {
+					cold = append(cold, child)
+				}
+			}
 		} else {
 			child := filepath.Join(abs, info.Name())
 			e.IsTrash = atRoot && info.Name() == trashDirName
@@ -185,6 +205,17 @@ func (s *server) filesHandler(w http.ResponseWriter, r *http.Request) {
 		"path":    relOf(abs, s.cfg.RootDir),
 		"entries": entries,
 	})
+
+	// The next listing of this folder answers them for free; until then the viewer asks per file.
+	if len(cold) > 0 {
+		s.thumbs.background(func() {
+			for _, p := range cold {
+				if fi, err := os.Stat(p); err == nil {
+					s.thumbs.imageSize(p, fi)
+				}
+			}
+		})
+	}
 }
 
 // relOf turns an absolute path back into the root-relative one the client navigates by.

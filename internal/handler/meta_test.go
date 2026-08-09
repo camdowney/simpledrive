@@ -126,6 +126,58 @@ func TestMetaHandler(t *testing.T) {
 	}
 }
 
+// The viewer sizes a photo's stand-in before it opens anything, so the listing must carry the size.
+func TestListingCarriesImageDims(t *testing.T) {
+	root := t.TempDir()
+	// Orientation 6 rotates 90°, so the listing must report the shown size, not the stored one.
+	jpg := jpegWithExif(t, 1024, 768, buildExifTIFF(6, "2021:07:04 13:37:00"))
+	if err := os.WriteFile(filepath.Join(root, "photo.jpg"), jpg, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("hi"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := &server{cfg: &config.Config{RootDir: root}, thumbs: newThumbCache(t.TempDir())}
+	list := func() map[string]entry {
+		t.Helper()
+		rr := httptest.NewRecorder()
+		s.filesHandler(rr, httptest.NewRequest("GET", "/api/files?path=/", nil))
+		if rr.Code != 200 {
+			t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+		}
+		var out struct {
+			Entries []entry `json:"entries"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+		byName := map[string]entry{}
+		for _, e := range out.Entries {
+			byName[e.Name] = e
+		}
+		return byName
+	}
+
+	got := list()
+	if got["photo.jpg"].Width != 768 || got["photo.jpg"].Height != 1024 {
+		t.Errorf("dimensions = %dx%d, want 768x1024", got["photo.jpg"].Width, got["photo.jpg"].Height)
+	}
+	if got["notes.txt"].Width != 0 {
+		t.Errorf("a text file reported a size: %v", got["notes.txt"])
+	}
+
+	// Memoized by the listing, so a folder of photos decodes its headers once, not once per visit.
+	abs := filepath.Join(root, "photo.jpg")
+	fi, err := os.Stat(abs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w, h, ok := s.thumbs.knownImageSize(abs, fi); !ok || w != 768 || h != 1024 {
+		t.Errorf("memo after listing = %dx%d ok=%v, want 768x1024 true", w, h, ok)
+	}
+}
+
 func TestMetaHandlerImageWithoutExif(t *testing.T) {
 	root := t.TempDir()
 	p := filepath.Join(root, "shot.png")

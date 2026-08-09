@@ -91,6 +91,7 @@ const applyListing = (path, data, { pushHash = true } = {}) => {
   // A locked vault's real listing is ciphertext under random ids; the unlock panel stands in.
   state.allEntries = state.inVault && !vaultUnlocked() ? [] : data.entries || []
   state.inMount = data.inMount === true
+  noteListedDims(state.allEntries)
   applyEntryFilters()
   loadFolderPrefs()
   sortEntries()
