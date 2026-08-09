@@ -1216,6 +1216,19 @@
     <script src="/static/vendor/toastui-editor-plugin-color-syntax.min.js"></script>
     <script src="/static/vendor/age.min.js"></script>
     <script src="/static/js/vault.js"></script>
-    <script src="/static/js/app.js"></script>
+    <!-- One global scope split by section: load order is the dependency order, so never defer these. -->
+    <script src="/static/js/app/core.js"></script>
+    <script src="/static/js/app/modal.js"></script>
+    <script src="/static/js/app/prefs.js"></script>
+    <script src="/static/js/app/tags.js"></script>
+    <script src="/static/js/app/search.js"></script>
+    <script src="/static/js/app/browser.js"></script>
+    <script src="/static/js/app/transfer.js"></script>
+    <script src="/static/js/app/editor.js"></script>
+    <script src="/static/js/app/preview.js"></script>
+    <script src="/static/js/app/audio.js"></script>
+    <script src="/static/js/app/jobs.js"></script>
+    <script src="/static/js/app/account.js"></script>
+    <script src="/static/js/app/init.js"></script>
   </body>
 </html>
