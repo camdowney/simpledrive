@@ -360,12 +360,15 @@ const teardownPreview = () => {
   }
   body.innerHTML = ""
   body.style.transform = ""
+  resetZoom()
   const bar = document.getElementById("preview-tagbar")
   bar.innerHTML = ""
   bar.classList.remove("has-audio")
   document.getElementById("preview-tagslot").innerHTML = ""
   document.getElementById("preview-options").classList.remove("open")
-  document.getElementById("preview-view").classList.remove("chrome-hidden", "has-embed")
+  document
+    .getElementById("preview-view")
+    .classList.remove("chrome-hidden", "has-embed", "has-photo")
 }
 
 const showBrowser = ({ pushHash = true } = {}) => {

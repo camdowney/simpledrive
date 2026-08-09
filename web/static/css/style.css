@@ -3536,6 +3536,11 @@ ul.tui-colorpicker-clearfix li {
   }
 }
 
+/* A photo's pinch is ours to zoom with, so the browser must not take the touch for its own. */
+.has-photo .preview-body {
+  touch-action: none;
+}
+
 .preview-none {
   color: #bbb;
   font-size: 14px;
@@ -3587,6 +3592,20 @@ ul.tui-colorpicker-clearfix li {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+/* Zoom rides on the photo: the body's own transform belongs to the swipe. */
+.preview-body img.zoomed {
+  cursor: grab;
+}
+
+.preview-body img.zoomed:active {
+  cursor: grabbing;
+}
+
+/* Only a stepped zoom animates; a pinch or a pan must land on the finger, not chase it. */
+.preview-body img.zoom-anim {
+  transition: transform 0.18s ease-out;
 }
 
 /* The 320px thumb stands in on the full image's rect, so the swap doesn't move anything. */

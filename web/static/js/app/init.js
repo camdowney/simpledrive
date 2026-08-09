@@ -532,6 +532,7 @@ const init = async () => {
   document.getElementById("preview-prev-btn").addEventListener("click", () => previewNavigate(-1))
   document.getElementById("preview-next-btn").addEventListener("click", () => previewNavigate(1))
   setupPreviewSwipe()
+  setupPreviewZoom()
 
   setupDragDrop()
   registerWorker()

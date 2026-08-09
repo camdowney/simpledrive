@@ -198,6 +198,9 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
   }
   const view = document.getElementById("preview-view")
   view.classList.toggle("has-embed", type === "pdf")
+  // Only a photo zooms, and only its body may claim the pinch the browser would otherwise take.
+  view.classList.toggle("has-photo", type === "image")
+  resetZoom()
   // Only a photo takes the tap that toggles the chrome, so paging elsewhere must restore it.
   if (type !== "image") view.classList.remove("chrome-hidden")
 
@@ -491,12 +494,17 @@ const setupPreviewSwipe = () => {
   body.addEventListener("pointerdown", (e) => {
     // A second finger means pinch/zoom, not a swipe.
     if (start) {
+      const drag = start.drag
       start = null
+      if (drag) settle(0)
+      else clearPeeks()
       return
     }
     if (e.button !== 0) return
     if (state.previewSliding) return
     if (!["image", "video", "audio"].includes(state.previewType)) return
+    // A zoomed photo is bigger than its box, so a drag pans it rather than pages away from it.
+    if (zoomedIn()) return
     // Dragging a player's controls scrubs it; that gesture is the player's, not ours.
     const player = body.querySelector(":scope > video, :scope > audio")
     if (player) {
@@ -541,10 +549,10 @@ const setupPreviewSwipe = () => {
     body.style.transform = `translateX(${offset}px)`
   })
 
-  body.addEventListener("pointerup", (e) => {
+  // A tap that hides the chrome may turn out to be half a double tap, so the zoom gesture owns it.
+  body.addEventListener("pointerup", () => {
     if (!start) return
-    const { drag, at, touch } = start
-    const dy = e.clientY - start.y
+    const { drag } = start
     start = null
     if (drag) {
       const delta = dir < 0 ? 1 : -1
@@ -554,10 +562,6 @@ const setupPreviewSwipe = () => {
       return
     }
     clearPeeks()
-    // Click-to-hide would take the desktop chrome's own nav buttons with it, so it stays a tap.
-    if (!touch) return
-    if (Date.now() - at < 400 && Math.hypot(dx, dy) < SWIPE_SLOP && state.previewType === "image")
-      document.getElementById("preview-view").classList.toggle("chrome-hidden")
   })
 
   body.addEventListener("pointercancel", () => {
@@ -565,5 +569,172 @@ const setupPreviewSwipe = () => {
     start = null
     if (drag) settle(0)
     else clearPeeks()
+  })
+}
+
+// ─── Zoom ─────────────────────────────────────────────────────────────────────
+
+const ZOOM_MAX = 6
+const ZOOM_DOUBLE = 2.5 // where a double tap or double click lands
+const DOUBLE_TAP_MS = 260
+
+const zoom = { scale: 1, x: 0, y: 0 }
+let chromeTapTimer = 0
+
+const zoomedIn = () => zoom.scale > 1
+
+// A stand-in is stretched to the whole box rather than the picture's rect; there's nothing to pan.
+const zoomImg = () => document.querySelector("#preview-body > img:not(.preview-placeholder)")
+
+// Panned against the body's whole box, so a zoomed photo runs under the bars but not past its edge.
+const applyZoom = (animate = false) => {
+  const img = zoomImg()
+  if (!img) return
+  const body = document.getElementById("preview-body")
+  const maxX = Math.max(0, (img.offsetWidth * zoom.scale - body.clientWidth) / 2)
+  const maxY = Math.max(0, (img.offsetHeight * zoom.scale - body.clientHeight) / 2)
+  zoom.x = Math.min(maxX, Math.max(-maxX, zoom.x))
+  zoom.y = Math.min(maxY, Math.max(-maxY, zoom.y))
+  img.classList.toggle("zoom-anim", animate)
+  img.classList.toggle("zoomed", zoomedIn())
+  img.style.transform = zoomedIn() ? `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})` : ""
+}
+
+// Holds whatever sits under the cursor or the pinch's midpoint still while the scale grows past it.
+const zoomAt = (scale, px, py, animate = false) => {
+  if (!zoomImg()) return
+  const next = Math.min(ZOOM_MAX, Math.max(1, scale))
+  const box = document.getElementById("preview-body").getBoundingClientRect()
+  const cx = box.left + box.width / 2
+  const cy = box.top + box.height / 2
+  const u = (px - cx - zoom.x) / zoom.scale
+  const v = (py - cy - zoom.y) / zoom.scale
+  zoom.x = px - cx - u * next
+  zoom.y = py - cy - v * next
+  zoom.scale = next
+  applyZoom(animate)
+}
+
+const resetZoom = () => {
+  clearTimeout(chromeTapTimer)
+  zoom.scale = 1
+  zoom.x = zoom.y = 0
+  applyZoom()
+}
+
+// Pinch, wheel and double tap zoom a photo; a drag pans it once it outgrows the screen.
+const setupPreviewZoom = () => {
+  const body = document.getElementById("preview-body")
+  const pts = new Map() // live pointers, each holding where it went down
+  let pinch = null
+  let pan = null
+  let tapAt = 0
+  let touched = false
+
+  const zoomable = () => state.previewType === "image" && !!zoomImg()
+
+  // The first two pointers own the pinch; a Map keeps them in the order they landed.
+  const spread = () => {
+    const [a, b] = [...pts.values()]
+    return { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }
+  }
+
+  const toggleAt = (x, y) => zoomAt(zoomedIn() ? 1 : ZOOM_DOUBLE, x, y, true)
+
+  // The chrome waits out the double tap window: a second tap zooms, and must not flip it as well.
+  const tap = (x, y) => {
+    const now = Date.now()
+    if (now - tapAt < DOUBLE_TAP_MS) {
+      clearTimeout(chromeTapTimer)
+      tapAt = 0
+      toggleAt(x, y)
+      return
+    }
+    tapAt = now
+    chromeTapTimer = setTimeout(
+      () => document.getElementById("preview-view").classList.toggle("chrome-hidden"),
+      DOUBLE_TAP_MS
+    )
+  }
+
+  body.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || !zoomable()) return
+    touched = e.pointerType === "touch"
+    const x = e.clientX
+    const y = e.clientY
+    pts.set(e.pointerId, { x, y, sx: x, sy: y, at: Date.now(), touch: touched, moved: false })
+    if (pts.size === 2) {
+      for (const p of pts.values()) p.moved = true // neither finger of a pinch can end as a tap
+      // A pinch settles the tap before it: it neither completes a double tap nor flips the chrome.
+      clearTimeout(chromeTapTimer)
+      tapAt = 0
+      pinch = spread()
+      pan = null
+    } else if (pts.size === 1 && zoomedIn()) {
+      pan = { x: e.clientX, y: e.clientY }
+      if (!touched) {
+        // A mouse dragged off the photo would drop the pan, and drag the image natively instead.
+        body.setPointerCapture(e.pointerId)
+        e.preventDefault()
+      }
+    }
+  })
+
+  body.addEventListener("pointermove", (e) => {
+    const p = pts.get(e.pointerId)
+    if (!p) return
+    p.x = e.clientX
+    p.y = e.clientY
+    if (Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > SWIPE_SLOP) p.moved = true
+    if (pinch && pts.size >= 2) {
+      const now = spread()
+      // Fingers that travel together pan; the change in their spread is what scales.
+      zoom.x += now.mx - pinch.mx
+      zoom.y += now.my - pinch.my
+      zoomAt(zoom.scale * (pinch.dist ? now.dist / pinch.dist : 1), now.mx, now.my)
+      pinch = now
+    } else if (pan) {
+      zoom.x += e.clientX - pan.x
+      zoom.y += e.clientY - pan.y
+      pan = { x: e.clientX, y: e.clientY }
+      applyZoom()
+    }
+  })
+
+  const release = (e) => {
+    const p = pts.get(e.pointerId)
+    if (!p) return null
+    pts.delete(e.pointerId)
+    if (pts.size < 2) pinch = null
+    // Lifting one finger of a pinch hands the gesture to the other, so the photo keeps panning.
+    const [rest] = [...pts.values()]
+    pan = rest && zoomedIn() ? { x: rest.x, y: rest.y } : null
+    return p
+  }
+
+  body.addEventListener("pointerup", (e) => {
+    const p = release(e)
+    // Click-to-hide would take the desktop chrome's own nav buttons with it, so it stays a tap.
+    if (!p || !p.touch || p.moved || pts.size) return
+    if (Date.now() - p.at < 400) tap(e.clientX, e.clientY)
+  })
+
+  body.addEventListener("pointercancel", release)
+
+  body.addEventListener(
+    "wheel",
+    (e) => {
+      if (!zoomable()) return
+      e.preventDefault()
+      const step = e.deltaY * (e.deltaMode ? 33 : 1) // Firefox reports lines, not pixels
+      zoomAt(zoom.scale * Math.exp(-step * 0.002), e.clientX, e.clientY)
+    },
+    { passive: false }
+  )
+
+  body.addEventListener("dblclick", (e) => {
+    // A double tap is already handled as one; the emulated dblclick behind it would undo the zoom.
+    if (touched || !zoomable()) return
+    toggleAt(e.clientX, e.clientY)
   })
 }
