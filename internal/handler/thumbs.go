@@ -346,12 +346,10 @@ func thumbSortParams(r *http.Request) (sortBy string, desc bool) {
 	return sortBy, r.URL.Query().Get("sd") == "desc"
 }
 
-// Files cache hard: their URL carries a version that changes with the bytes behind it.
-// A folder's URL is versioned by its own mtime, which misses a child edited in place, so its
-// preview is held for an hour and then revalidated against the ETag rather than kept for a week.
+// Files cache hard (URL carries a version); folder previews must revalidate via ETag.
 func thumbCacheControl(isDir bool) string {
 	if isDir {
-		return "private, max-age=3600"
+		return "private, no-cache"
 	}
 	return "private, max-age=604800"
 }

@@ -140,7 +140,7 @@ const api = async (method, path, body, isForm, signal) => {
     } catch {}
     throw new Error(msg)
   }
-  if (method === "POST" && path.startsWith("/api/files/")) noteFilesChanged()
+  if (method === "POST" && /^\/api\/(files|trash|media)\//.test(path)) noteFilesChanged()
   // The worker answered from its cache, so these rows are the last ones seen, not the current ones.
   if (res.headers.get("x-from-cache")) noteOffline()
   try {

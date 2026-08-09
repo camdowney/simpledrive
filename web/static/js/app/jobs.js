@@ -26,6 +26,8 @@ const pollJobs = async () => {
         continue
       }
       if (j.status !== "done") continue
+      // The write lands as the job ends, long after the POST that queued it invalidated anything.
+      noteFilesChanged()
       // Only act when the new file belongs in the folder on screen, and never over an open dialog.
       const landedHere = j.output && dirName(j.output) === state.currentPath
       const browsing = !document.getElementById("browser-view").classList.contains("hidden")

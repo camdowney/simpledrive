@@ -24,7 +24,8 @@ func compressible(contentType string) bool {
 	if i := strings.IndexByte(contentType, ';'); i >= 0 {
 		contentType = contentType[:i]
 	}
-	switch strings.TrimSpace(strings.ToLower(contentType)) {
+	contentType = strings.TrimSpace(strings.ToLower(contentType))
+	switch contentType {
 	case "application/json", "application/javascript", "application/manifest+json",
 		"application/xml", "image/svg+xml":
 		return true
@@ -38,8 +39,7 @@ func bodyless(code int) bool {
 		code == http.StatusPartialContent
 }
 
-// gzipWriter holds the status line back until the first body bytes say what is being sent, since
-// only then are Content-Type and size known well enough to decide.
+// gzipWriter holds the status line until the first body bytes settle Content-Type and size.
 type gzipWriter struct {
 	http.ResponseWriter
 	gz     *gzip.Writer
@@ -104,6 +104,37 @@ func (w *gzipWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
+// ReadFrom keeps sendfile reachable on the uncompressed path, which is how whole files go out.
+func (w *gzipWriter) ReadFrom(r io.Reader) (int64, error) {
+	var n int64
+	if !w.sent {
+		// begin decides from the leading bytes, and only Write can hand them over.
+		var buf [minCompressSize]byte
+		got, err := io.ReadFull(r, buf[:])
+		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+			return 0, err
+		}
+		// Nothing read, so leave the headers open for whatever the handler writes next.
+		if got == 0 {
+			return 0, nil
+		}
+		if _, err := w.Write(buf[:got]); err != nil {
+			return int64(got), err
+		}
+		n = int64(got)
+	}
+	if w.gz != nil {
+		m, err := io.Copy(w.gz, r)
+		return n + m, err
+	}
+	if rf, ok := w.ResponseWriter.(io.ReaderFrom); ok {
+		m, err := rf.ReadFrom(r)
+		return n + m, err
+	}
+	m, err := io.Copy(w.ResponseWriter, r)
+	return n + m, err
+}
+
 func (w *gzipWriter) Flush() {
 	if !w.sent {
 		w.begin(nil)
@@ -132,13 +163,14 @@ func (w *gzipWriter) close() {
 // compress gzips text-shaped responses; a folder listing goes out at about a seventh of its size.
 func compress(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set even on the uncompressed path, so a cache can't hand these bytes to a gzip client.
+		w.Header().Add("Vary", "Accept-Encoding")
 		// A range wants offsets into the stored file; a HEAD must not be answered with body bytes.
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") ||
 			r.Header.Get("Range") != "" || r.Method == http.MethodHead {
 			next.ServeHTTP(w, r)
 			return
 		}
-		w.Header().Add("Vary", "Accept-Encoding")
 		gw := &gzipWriter{ResponseWriter: w}
 		defer gw.close()
 		next.ServeHTTP(gw, r)

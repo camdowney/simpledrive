@@ -415,6 +415,7 @@ const registerWorker = () => {
 
 // Listings this device cached belong to the session that fetched them, and end with it.
 const clearWorkerData = () => {
+  invalidateListings()
   navigator.serviceWorker?.controller?.postMessage({ type: "clear-data" })
 }
 

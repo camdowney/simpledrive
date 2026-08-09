@@ -17,12 +17,17 @@ const cacheListing = (path, data) => {
 }
 
 // Any write can add, rename or remove rows in folders other than the one it happened in.
-const invalidateListings = () => listingCache.clear()
+let listingGen = 0
+const invalidateListings = () => {
+  listingCache.clear()
+  listingGen++
+}
 
 const fetchListing = async (path) => {
+  const gen = listingGen
   const data = await api("GET", `/api/files?path=${encodeURIComponent(path)}`)
-  // A name that turned out to be a file has no listing worth keeping.
-  if (data && !data.notDir) cacheListing(path, data)
+  // Nothing to keep for a name that turned out to be a file, nor for rows a write has since outrun.
+  if (data && !data.notDir && gen === listingGen) cacheListing(path, data)
   return data
 }
 
@@ -409,8 +414,8 @@ const renderGrid = (container) =>
   )
 
 // Lazy thumbnail loader: loads near-viewport images a few at a time.
-// Six is what a browser will open to one host anyway; fewer just leaves the connections idle.
-const MAX_CONCURRENT_THUMBS = 6
+// One under the six-connection HTTP/1.1 budget, so a navigation never queues behind a thumb.
+const MAX_CONCURRENT_THUMBS = 5
 // Tracked as nodes, not a count, so a re-render can drop the ones that will never settle.
 const inFlightThumbs = new Set()
 const thumbQueue = []

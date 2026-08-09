@@ -56,10 +56,9 @@ func TestFolderThumbFromMount(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("folder thumb status %d: %s", w.Code, w.Body)
 	}
-	// Held briefly rather than for a week: the URL's version is the folder's own mtime, which a
-	// child edited in place doesn't move. The ETag settles it once the hold is up.
-	if cc := w.Header().Get("Cache-Control"); cc != "private, max-age=3600" {
-		t.Errorf("Cache-Control = %q, want the folder-preview hold", cc)
+	// A folder's URL is versioned by its own mtime, which a child edited in place doesn't move.
+	if cc := w.Header().Get("Cache-Control"); cc != "private, no-cache" {
+		t.Errorf("folder previews must revalidate; Cache-Control = %q", cc)
 	}
 	if w.Header().Get("ETag") == "" {
 		t.Error("folder previews must carry an ETag to revalidate against")
