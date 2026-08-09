@@ -32,8 +32,7 @@ var (
 
 func (s *server) uploadsDir() string { return filepath.Join(s.cfg.RootDir, uploadsDirName) }
 
-// partPath names the part file. The destination is hashed in, so a part can only ever be resumed
-// into the folder it was started for — a client id alone never reaches another folder's upload.
+// The destination is hashed in, so a client id alone never reaches another folder's upload.
 func (s *server) partPath(destAbs, id string) string {
 	sum := sha256.Sum256([]byte(destAbs + "\x00" + id))
 	return filepath.Join(s.uploadsDir(), hex.EncodeToString(sum[:])+".part")
@@ -104,8 +103,8 @@ func (s *server) uploadStatusHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"offset": partSize(part)})
 }
 
-// uploadChunkHandler — POST /api/files/upload/chunk?path=&id=&offset=&name=&last=1  appends one
-// slice of a file, and on the last one moves the assembled part into place.
+// uploadChunkHandler — POST /api/files/upload/chunk?path=&id=&offset=&name=&last=1
+// Appends one slice, and on the last one moves the assembled part into place.
 func (s *server) uploadChunkHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -142,8 +141,7 @@ func (s *server) uploadChunkHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	have := partSize(part)
-	// A resumed client can be behind or ahead of what actually landed; hand back the truth so it
-	// re-sends from there rather than stitching a corrupt file together.
+	// A resumed client can be behind or ahead of what landed; hand back the truth to re-send from.
 	if offset != have {
 		f.Close()
 		writeJSON(w, http.StatusConflict, map[string]any{"error": "offset mismatch", "offset": have})

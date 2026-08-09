@@ -257,8 +257,7 @@ func (s *server) displayHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// serveDisplay hands back the cached JPEG, or — when it isn't built yet — starts the build off the
-// request and redirects to the original: a cold decode buffers whole, so waiting costs more.
+// serveDisplay redirects to the original when the JPEG isn't built: a cold decode buffers whole.
 func (s *server) serveDisplay(w http.ResponseWriter, r *http.Request, hash string, raw bool,
 	build func(context.Context) (string, error)) {
 
@@ -371,8 +370,7 @@ func (c *thumbCache) folderChild(dir string, mtime time.Time, sortBy string, des
 	return child
 }
 
-// invalidateFolder drops dir's memoized preview child: editing a child's mtime
-// changes date-sort order without touching dir's mtime, so the memo can't self-expire.
+// invalidateFolder drops dir's memo: a child's mtime changes sort order without touching dir's.
 func (c *thumbCache) invalidateFolder(dir string) {
 	c.mu.Lock()
 	for _, sb := range []string{"name", "date", "size"} {
@@ -575,8 +573,7 @@ func (c *thumbCache) displayReady(hash string) bool {
 	return true
 }
 
-// background runs gen off the request, dropping it when the queue is full: the grid's thumb pass
-// builds the same variant later, so a skipped warm-up is deferred rather than lost.
+// background runs gen off the request, dropping it when full: the thumb pass rebuilds it later.
 func (c *thumbCache) background(gen func()) {
 	select {
 	case c.bgSem <- struct{}{}:
@@ -589,8 +586,7 @@ func (c *thumbCache) background(gen func()) {
 	}()
 }
 
-// scaledOutputsFor lists what one decode should write. The display pass throws in the thumb, which
-// costs almost nothing off the already-shrunk image; the thumb pass never pays the display's scale.
+// scaledOutputsFor lists what one decode writes; the display pass throws in the near-free thumb.
 func (c *thumbCache) scaledOutputsFor(name, hash string, forDisplay bool) []scaledOutput {
 	var outs []scaledOutput
 	add := func(suffix string, maxDim, quality int, always bool) {
@@ -632,8 +628,7 @@ func (c *thumbCache) ensureWith(hash string, gen func(cachePath string) error) (
 	return cachePath, nil
 }
 
-// generateVideoThumb extracts one frame via ffmpeg; seek 1s skips fade-in, else first frame.
-// src may be an https URL, which ffmpeg range-reads: S3 videos never land on disk.
+// Seek 1s skips fade-in. src may be an https URL, which ffmpeg range-reads, so S3 stays off disk.
 func (c *thumbCache) generateVideoThumb(src, cachePath string) error {
 	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
 		return err
@@ -681,15 +676,13 @@ func (c *thumbCache) generateVideoThumb(src, cachePath string) error {
 		c.probeDuration(src, cachePath)
 		return nil
 	}
-	// Without this a failed video thumbnail is invisible: the client just gets 415.
-	// ffmpeg echoes the URL it was handed, so redact its message too, not just our own copy.
+	// Without this a failed video thumbnail is invisible; ffmpeg echoes the URL, so redact it too.
 	safe := withoutQuery(src)
 	log.Printf("video thumbnail failed for %s: %s", safe, strings.ReplaceAll(lastErr, src, safe))
 	return image.ErrFormat
 }
 
-// probeDuration sidecars ffprobe's length for containers whose duration mvhd can't read.
-// Runs at generation time only; meta requests then answer from the sidecar.
+// probeDuration sidecars ffprobe's length for containers mvhd can't read; generation time only.
 func (c *thumbCache) probeDuration(src, cachePath string) {
 	ext := strings.ToLower(filepath.Ext(withoutQuery(src)))
 	if c.ffprobe == "" || mvhdExts[ext] {
@@ -700,8 +693,7 @@ func (c *thumbCache) probeDuration(src, cachePath string) {
 	}
 }
 
-// audioDuration answers from the sidecar, probing src once per content when it has none.
-// A zero is sidecared too, so an unreadable file isn't reprobed on every grid render.
+// audioDuration answers from the sidecar; a zero is sidecared too, so it isn't reprobed forever.
 func (c *thumbCache) audioDuration(hash, src string) int {
 	if di, ok := c.readDur(hash); ok {
 		return di.Duration
@@ -805,8 +797,7 @@ func writeScaledAll(f io.ReadSeeker, outs []scaledOutput) error {
 	return nil
 }
 
-// writeJPEG encodes img and writes it atomically, carrying the source's colour profile so a
-// wide-gamut photo isn't served untagged and rendered as sRGB.
+// writeJPEG writes atomically, carrying the colour profile so a wide-gamut photo isn't read sRGB.
 func writeJPEG(img image.Image, cachePath string, quality int, icc []byte) error {
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, flattenOnWhite(img), &jpeg.Options{Quality: quality}); err != nil {
@@ -859,8 +850,7 @@ func scaleDown(src image.Image, maxDim int) image.Image {
 	}
 	w, h := fitWithin(b.Dx(), b.Dy(), maxDim)
 	dst := image.NewRGBA(image.Rect(0, 0, w, h))
-	// CatmullRom costs ~1.5s at screen size on one core; past thumb size BiLinear is 2x faster
-	// and encodes smaller, and the extra sharpness is invisible at a 2-3x downscale anyway.
+	// Past thumb size BiLinear is 2x faster, and the extra sharpness is invisible at a 2-3x scale.
 	q := draw.Interpolator(draw.CatmullRom)
 	if maxDim > catmullRomMaxDim {
 		q = draw.BiLinear

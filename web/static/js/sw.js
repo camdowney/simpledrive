@@ -1,7 +1,7 @@
 "use strict"
 
-// The server stamps the build's asset fingerprint in as this worker is served, so a rebuilt
-// binary arrives as a different worker with different cache names and nothing carries over.
+// Stamped with the build's asset fingerprint as the worker is served, so a rebuild carries nothing
+// over: new worker, new cache names.
 const VERSION = "__SD_VERSION__"
 
 const SHELL = `sd-shell-${VERSION}`
@@ -9,8 +9,7 @@ const DATA = `sd-data-${VERSION}`
 // Unversioned: files handed over by a share sheet have to survive an update mid-hand-off.
 const SHARE = "sd-share"
 
-// Everything index.html pulls in before it can paint. They are fetched on every cold load
-// anyway, so precaching them costs nothing extra and is what makes the app open instantly.
+// Fetched on every cold load anyway, so precaching costs nothing and the app opens instantly.
 const SHELL_URLS = [
   "/",
   "/static/css/style.css",
@@ -59,8 +58,7 @@ self.addEventListener("message", (e) => {
 
 // ─── Share target ─────────────────────────────────────────────────────────────
 
-// Files arrive as a POST from the system share sheet. They are parked in a cache and the
-// request answered with a redirect, because a share target may not render a page of its own.
+// Parked in a cache and answered with a redirect: a share target may not render its own page.
 const takeSharedFiles = async (request) => {
   try {
     const form = await request.formData()

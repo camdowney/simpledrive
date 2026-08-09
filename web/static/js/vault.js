@@ -1,7 +1,4 @@
-// Client-side encrypted folders. The server stores age ciphertext and never sees a passphrase
-// or a plaintext byte; everything below runs in the page.
-//
-// Layout of a vault folder, and why it is shaped this way:
+// Client-side encrypted folders: the server stores age ciphertext and never sees a passphrase.
 //
 //   vault.key.age        the vault's age identity, encrypted under the user's passphrase
 //   vault.recovery.age   the same identity, encrypted under a printed recovery code
@@ -9,12 +6,8 @@
 //   RECOVERY.md          plaintext instructions, so a backup explains itself
 //   <32 hex chars>       one file, encrypted to the identity
 //
-// Encrypting straight to the passphrase would rerun scrypt on every single file open. Instead
-// the passphrase guards one small key file, and everything else is encrypted to the identity's
-// recipient, which is fast. Changing the passphrase rewrites vault.key.age alone.
-//
-// Subfolders live in the index only: every blob sits flat in the one directory, so a folder's
-// name is ciphertext like everything else and the tree leaks nothing but its shape.
+// The passphrase guards the key file alone; everything else is encrypted to the identity's
+// recipient, so opening a file never reruns scrypt. Subfolders live in the index only.
 const Vault = (() => {
   const KEY_FILE = "vault.key.age"
   const RECOVERY_FILE = "vault.recovery.age"
@@ -33,7 +26,6 @@ const Vault = (() => {
 
   const openPath = () => open && open.path
 
-  // True for the vault's own folder and everything below it, which is all served from the index.
   const covers = (path) => !!open && (path === open.path || path.startsWith(open.path + "/"))
 
   // A transfer in flight is activity: auto-locking mid-upload would strand the file it was writing.
@@ -93,8 +85,7 @@ const Vault = (() => {
   }
 
   // Blobs are written once under a fresh id; only index.age is ever replaced in place.
-  // XHR rather than fetch: a vault writes each file in one request, and only XHR says how much
-  // of it has actually left the page.
+  // XHR rather than fetch: only XHR reports how much of a write has left the page.
   const putBytes = (dir, name, bytes, { overwrite = false, onProgress } = {}) =>
     new Promise((resolve, reject) => {
       const fd = new FormData()
@@ -137,14 +128,12 @@ const Vault = (() => {
 
   // ── Crypto ──────────────────────────────────────────────────────────────────
 
-  // Every age call below runs in a worker: it works a whole file at a time and never yields, so
-  // on the main thread a large file is a frozen tab rather than a slow one.
+  // age works a whole file at a time and never yields, so on the main thread a big file freezes.
   let ready = null // Promise<Worker|null>, settled once the worker has shown it loaded
   let jobSeq = 0
   const jobs = new Map()
 
-  // Nothing is sent until the worker answers: a script that fails to load has to fall back to the
-  // page, not take the first file down with it.
+  // Nothing is sent until the worker answers, so a script that fails to load falls back to the page.
   const startWorker = () =>
     new Promise((resolve) => {
       let w
@@ -170,8 +159,7 @@ const Vault = (() => {
       }
     })
 
-  // Detaches bytes: the buffer is handed over rather than copied, which halves peak memory on a
-  // large file. Every caller passes an array it has just built, so nothing else can be holding it.
+  // Detaches bytes: handing the buffer over rather than copying halves peak memory on a big file.
   const inWorker = async (msg, bytes) => {
     if (!ready) ready = startWorker()
     const w = await ready
@@ -269,8 +257,7 @@ const Vault = (() => {
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
-  // Creates the vault files in an existing empty folder. Returns the recovery code, which is
-  // shown once and never stored: it is the only way back in if the passphrase is forgotten.
+  // Returns the recovery code, shown once and never stored: the only way in without the passphrase.
   const create = async (dir, passphrase) => {
     const identity = await age.generateIdentity()
     const recipient = await age.identityToRecipient(identity)
@@ -306,9 +293,7 @@ const Vault = (() => {
     return index
   }
 
-  // The instructions are only worth keeping if they still match the format they describe, so a
-  // vault made by an earlier version has its copy brought up to date. Best effort: a read-only
-  // backup medium is a fine place for a stale doc, and no reason to refuse to open the vault.
+  // Best effort: a stale doc on a read-only medium is no reason to refuse to open the vault.
   const refreshDoc = async (dir) => {
     try {
       const want = recoveryDoc()
@@ -371,8 +356,7 @@ const Vault = (() => {
     return names
   }
 
-  // Display names double as the listing's identity, so a repeat upload is suffixed, not merged.
-  // keepExt false for a folder: its dots are part of the name, not an extension.
+  // A repeat name is suffixed, not merged; keepExt false for folders, whose dots aren't extensions.
   const uniqueName = (dir, name, { keepExt = true } = {}) => {
     const taken = takenIn(dir)
     if (!taken.has(name)) return name

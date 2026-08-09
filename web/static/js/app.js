@@ -18,10 +18,8 @@ const cachedTags = (() => {
   }
 })()
 
-// Kept out of prefs: the theme stays on this device and is never synced to the server.
+// Per-device, so kept out of prefs and never synced to the server.
 const cachedTheme = localStorage.getItem("theme")
-
-// Volume is a property of the speakers in front of you, so it stays local like the theme.
 const cachedVolume = parseFloat(localStorage.getItem("volume"))
 
 const readAudioMode = (v) => (v === "sequential" || v === "shuffle" ? v : "off")
@@ -44,7 +42,7 @@ const state = {
   sortDir: "asc",
   groupings: cachedPrefs.groupings || {}, // { path: 'folders' | 'mixed' }
   grouping: "folders", // active grouping resolved for the current folder
-  showHidden: cachedPrefs.showHidden === true, // reveal dotfiles
+  showHidden: cachedPrefs.showHidden === true,
   tags: Array.isArray(cachedTags.tags) ? cachedTags.tags : [], // catalog: { id, name, color }
   fileTags: cachedTags.files || {}, // { path: [tagId] }
   tagFilter: new Set(), // tag ids narrowing the listing; a view, not a setting, so never persisted
@@ -84,7 +82,6 @@ const state = {
 
 const isShareUrl = () => window.location.pathname.startsWith("/s/")
 
-// Everything a share can't do is decided here; the server refuses it independently.
 const canEdit = () => !state.share || state.share.mode === "edit"
 
 // A link's own root stands in for "/" everywhere the owner's drive root would be used.
@@ -93,7 +90,6 @@ const homePath = () => (state.share ? state.share.root : "/")
 // A link on one file: no listing behind it, and no folder above it the visitor may see.
 const sharedFile = () => !!state.share && state.share.isDir === false
 
-// The listing row a file link never gets, built from what /api/share/info said about its target.
 const sharedFileEntry = () =>
   sharedFile()
     ? {
@@ -241,14 +237,12 @@ const isViewable = (name) => {
 
 const MAX_EDITABLE_SIZE = 10 << 20 // mirrors the server's cap on what it hands the text editor
 
-// Past the cap the viewer stands in and only names the file, the way it does for an archive.
 const tooBigToEdit = (name) => {
   if (!["text", "markdown"].includes(fileType(name))) return false
   const entry = state.entries.find((e) => e.name === name) || sharedFileEntry()
   return !!entry && entry.name === name && entry.size > MAX_EDITABLE_SIZE
 }
 
-// Files the viewer has nothing to paint for, and hands to the toolbar as a name alone.
 const previewsBlank = (name) => fileType(name) === "archive" || tooBigToEdit(name)
 
 const fmtSize = (bytes) => {
@@ -258,7 +252,6 @@ const fmtSize = (bytes) => {
   return (bytes / 1024 / 1024 / 1024).toFixed(1) + " GB"
 }
 
-// Whole seconds to "MM:SS" / "HH:MM:SS"; leading unit padded to match the 00:00 placeholder.
 const fmtDuration = (secs) => {
   const h = Math.floor(secs / 3600)
   const m = String(Math.floor((secs % 3600) / 60)).padStart(2, "0")
@@ -275,7 +268,7 @@ const fmtDate = (iso) => {
   return `${date} <span class="file-meta-time">${time}</span>`
 }
 
-// Local "YYYY-MM-DDTHH:MM:SS" — the value format a <input type="datetime-local" step="1"> expects.
+// The value format a <input type="datetime-local" step="1"> expects.
 const toEditableDate = (iso) => {
   const d = new Date(iso)
   const p = (n) => String(n).padStart(2, "0")
@@ -291,7 +284,6 @@ const parseEditableDate = (s) => {
 
 const joinPath = (dir, name) => (dir.replace(/\/$/, "") + "/" + name).replace(/^\/\//, "/")
 
-// Path of a child of the current folder.
 const relPath = (name) => joinPath(state.currentPath, name)
 
 const parentPath = (path) => path.slice(0, path.lastIndexOf("/")) || "/"
@@ -300,17 +292,13 @@ const parentPath = (path) => path.slice(0, path.lastIndexOf("/")) || "/"
 const entryDir = (entry) => entry.dir || state.currentPath
 const entryPath = (entry) => joinPath(entryDir(entry), entry.name)
 
-// True for entries the index holds. The vault's own folder is browsed from inside the vault but
-// is an ordinary directory on the server, so its crumb acts through the API like any other.
+// The vault's own folder is browsed from inside the vault but is an ordinary server directory.
 const inVaultIndex = (entry) => state.inVault && Vault.covers(entryDir(entry))
 
-// Inside the trash — where deleting is permanent. The folder itself is excluded; it is not content.
 const inTrashPath = (path) => path.startsWith(`/${TRASH_DIR}/`)
-
-// The trash folder itself, or anything under it: nothing in here is the user's to act on.
 const atOrInTrash = (path) => path === `/${TRASH_DIR}` || inTrashPath(path)
 
-// Targets that own Space and Enter themselves: a shortcut on those keys must let them through.
+// Targets that own Space and Enter themselves; shortcuts on those keys must let them through.
 const typingOrPressing = (el) =>
   el instanceof HTMLInputElement ||
   el instanceof HTMLTextAreaElement ||
@@ -323,7 +311,7 @@ const typingOrPressing = (el) =>
 const spaceIsPlayers = (el) =>
   !typingOrPressing(el) || (el instanceof HTMLButtonElement && !!el.closest("#preview-view"))
 
-// An opener stops the click from reaching the other menus' close handlers, so shut them here.
+// An opener stops the click from reaching other menus' close handlers, so shut them here.
 const closePopovers = (except) => {
   for (const p of document.querySelectorAll(".popover.open")) {
     if (p === except) continue
@@ -405,8 +393,7 @@ const showModal = ({ title, placeholder, defaultValue = "", extra = "", okLabel 
   }
 }
 
-// Shared shell for modals built in #modal-extra: fills the chrome, wires dismissal,
-// and returns cleanup. onOk closes the modal itself (via the returned cleanup).
+// Shared shell for modals built in #modal-extra; onOk closes it via the returned cleanup.
 const showExtraModal = ({
   title,
   extraHtml,
@@ -428,12 +415,10 @@ const showExtraModal = ({
   inp.style.display = "none"
   extra.innerHTML = extraHtml
   okBtn.textContent = okLabel
-  // A dialog that disabled this while it worked may have closed without restoring it; the button
-  // is shared, so a stale disabled state would leave every later modal's confirm dead.
+  // The button is shared, so a dialog that closed while disabled would kill every later confirm.
   okBtn.disabled = false
   okBtn.className =
     okClass || (danger ? "btn btn-danger" : closeOnly ? "btn btn-ghost" : "btn btn-primary")
-  // Informational modal: no redundant Cancel beside the single button that dismisses it.
   if (closeOnly) cancelBtn.style.display = "none"
   document.getElementById("modal").classList.toggle("modal-wide", wide)
   backdrop.classList.add("active")
@@ -479,15 +464,12 @@ const showConfirm = ({ title, message, okLabel = "Delete", onOk }) => {
   document.getElementById("modal-cancel").focus()
 }
 
-// Reapply the original extension when a new name omits one.
 const withOrigExt = (origName, newName) => {
   const origExt = origName.includes(".") ? origName.slice(origName.lastIndexOf(".")) : ""
   return origExt && !newName.includes(".") ? newName + origExt : newName
 }
 
-// Refresh the listing a rename landed in. Renaming the open folder itself moves the listing out
-// from under us, so follow it to its new path; otherwise stay in place, since renaming from the
-// viewer must not push the folder over the open file's entry.
+// Renaming the open folder moves the listing out from under us, so follow it to its new path.
 const followRename = async (entry, newName) => {
   const dir = entryDir(entry)
   if (joinPath(dir, entry.name) !== state.currentPath) {
@@ -498,7 +480,6 @@ const followRename = async (entry, newName) => {
   replacePathHash(state.currentPath)
 }
 
-// Rename dialog: name field only, autofocused with the caret placed before the extension.
 const showRename = (entry, { onRenamed } = {}) => {
   const inp = document.getElementById("modal-input")
   showModal({
@@ -530,7 +511,6 @@ const showRename = (entry, { onRenamed } = {}) => {
   inp.setSelectionRange(caret, caret)
 }
 
-// Shared by the toolbar and the viewer's menu, which differ only in where they land afterwards.
 const deleteEntries = (entries, { after } = {}) => {
   if (!entries.length) return
   const label = entries.length === 1 ? `“${entries[0].name}”` : `${entries.length} items`
@@ -538,8 +518,7 @@ const deleteEntries = (entries, { after } = {}) => {
   const onlyMount = entries.length === 1 && entries[0].isMount
   // Already in the trash, so the server erases outright rather than trashing again.
   const purging = entries.some((e) => inTrashPath(entryPath(e)))
-  // Objects in a bucket, and a vault's index entries, are erased outright; only local files
-  // land in the trash.
+  // Only local files land in the trash; bucket objects and vault entries are erased outright.
   const recoverable =
     !state.inMount && !inVaultIndex(entries[0]) && !purging && !entries.some((e) => e.isMount)
   showConfirm({
@@ -590,8 +569,7 @@ const deleteEntries = (entries, { after } = {}) => {
   })
 }
 
-// The trash names entries by their landed basename, which only matches when nothing collided.
-// A collision is rare and merely costs the shortcut: the trash dialog still has the file.
+// The trash names entries by basename; a collision costs only this shortcut, not the file.
 const offerUndoDelete = (items) => {
   // Not "Moved … to trash": a long name ellipsises the tail away, leaving a half-sentence.
   const label = items.length === 1 ? `Deleted “${items[0].name}”` : `Deleted ${items.length} items`
@@ -679,7 +657,6 @@ const shareSectionHtml = (rel, name, shares, isDir) => {
   </div>`
 }
 
-// Each mode gives away something different, so the dialog says which before a link is minted.
 const SHARE_MODE_NOTE = {
   view: "Can view and download anything inside.",
   edit: "Can view, download, add, rename, and delete anything inside.",
@@ -769,7 +746,6 @@ const wireShareSection = (rel) => {
   }
 }
 
-// One file's tags. Reached from a menu, so the dialog names the file it acts on.
 const showTagsDialog = (entry) => {
   const rel = entryPath(entry)
   const cleanup = showExtraModal({
@@ -806,8 +782,7 @@ const showShareDialog = async (entry) => {
   wireShareSection(rel)
 }
 
-// Rename (via the name field) + view read-only details. Metadata is fetched before the
-// modal opens so every row renders together — no async pop-in or shifting padding.
+// Metadata is fetched before the modal opens so every row renders together, with no pop-in.
 const showDetails = async (entry, { onRenamed } = {}) => {
   const detailRow = (k, v) =>
     `<div class="detail-row"><span class="detail-label">${k}</span><span class="detail-value">${esc(v)}</span></div>`
@@ -827,7 +802,7 @@ const showDetails = async (entry, { onRenamed } = {}) => {
 
   const rows = []
   if (!entry.isDir) rows.push(detailRow("Size", fmtSize(entry.size)))
-  // A folder's size is a walk of everything under it, so it lands in the open dialog when ready.
+  // A folder's size is a full walk, so it lands in the open dialog when ready.
   const measurable = entry.isDir && !entry.isVault && !inVaultIndex(entry)
   if (measurable)
     rows.push(
@@ -1147,8 +1122,7 @@ const setTheme = (theme) => {
   localStorage.setItem("theme", theme)
 }
 
-// Any one of the selected tags is enough, not all of them. A folder also passes on a tagged
-// descendant, or the files inside it would be unreachable while the filter is on.
+// Any one selected tag is enough; a folder also passes on a tagged descendant.
 const matchesTagFilter = (entry, tagged) => {
   if (!tagged) return true
   const path = relPath(entry.name)
@@ -1188,7 +1162,6 @@ const savePrefs = () => {
   prefsSyncTimer = setTimeout(() => api("PUT", "/api/prefs", blob).catch(() => {}), 400)
 }
 
-// Server prefs win over the local cache; re-apply to the folder on screen.
 const syncPrefsFromServer = async () => {
   const blob = await api("GET", "/api/prefs").catch(() => null)
   if (!blob || typeof blob !== "object") return
@@ -1229,15 +1202,14 @@ const syncPrefsFromServer = async () => {
   }
 }
 
-// Lowercases and separates the extension; a dotfile keeps its whole name as the stem.
+// A dotfile keeps its whole name as the stem.
 const splitFileName = (name) => {
   const lower = name.toLowerCase()
   const dot = lower.lastIndexOf(".")
   return dot > 0 ? [lower.slice(0, dot), lower.slice(dot)] : [lower, ""]
 }
 
-// The extension is weighed apart from the stem, so "photo-resized.jpg" follows "photo.jpg"
-// instead of sorting ahead of it on the dot. The server orders listings the same way.
+// Extension weighed apart from the stem so "photo-resized.jpg" follows "photo.jpg"; server agrees.
 const compareFileNames = (a, b) => {
   const [as, ax] = splitFileName(a)
   const [bs, bx] = splitFileName(b)
@@ -1245,7 +1217,6 @@ const compareFileNames = (a, b) => {
   return ax < bx ? -1 : ax > bx ? 1 : 0
 }
 
-// Folders stay ahead of files unless grouping is "mixed"; chosen field orders within.
 const sortEntries = () => {
   const dir = state.sortDir === "desc" ? -1 : 1
   const byName = (a, b) => compareFileNames(a.name, b.name)
@@ -1255,7 +1226,7 @@ const sortEntries = () => {
     for (const e of state.entries) mtime.set(e, new Date(e.modified).getTime())
   }
   state.entries.sort((a, b) => {
-    // The trash is fixed furniture, not content: it outranks grouping, field, and direction.
+    // The trash is fixed furniture: it outranks grouping, field, and direction.
     if (a.isTrash !== b.isTrash) return a.isTrash ? -1 : 1
     if (state.grouping === "folders" && a.isDir !== b.isDir) return a.isDir ? -1 : 1
     let cmp
@@ -1333,7 +1304,6 @@ const syncTagsFromServer = async () => {
   renderFiles()
 }
 
-// Returns the tag matching name (case-insensitively) or a new one; null if the name is blank.
 const createTag = (name) => {
   const clean = name.trim().slice(0, TAG_NAME_MAX)
   if (!clean) return null
@@ -1369,8 +1339,7 @@ const deleteTag = (id) => {
   saveTags()
 }
 
-// Assignments name tags by id, so the rename lands on every tagged item with no rewrite.
-// False when the name is blank or another tag already holds it, leaving the caller to reprompt.
+// Assignments name tags by id, so a rename needs no rewrite; false when blank or taken.
 const renameTag = (id, name) => {
   const tag = tagById(id)
   const clean = name.trim().slice(0, TAG_NAME_MAX)
@@ -1398,8 +1367,7 @@ const setFileTag = (path, id, on) => {
   saveTags()
 }
 
-// Tags follow a file when it is renamed or moved; a folder carries its descendants' along.
-// A null `to` drops them, for a delete; the return keys them by suffix so undo can re-hang them.
+// A null `to` drops the tags; the return keys them by suffix so undo can re-hang them.
 const retagPath = (from, to) => {
   const taken = {}
   for (const path of Object.keys(state.fileTags)) {
@@ -1418,7 +1386,6 @@ const retagUnder = (base, taken) => {
   saveTags()
 }
 
-// The opener stands in for the file's tags, so it wears their colors.
 const tagOpenerHtml = (path) => {
   const dots = tagsFor(path)
     .slice(0, 3)
@@ -1428,8 +1395,6 @@ const tagOpenerHtml = (path) => {
   return `${dots ? `<span class="tag-dots">${dots}</span>` : ""}<span>Tags</span>`
 }
 
-// One file's tags: a field that finds or creates a tag over a list that ticks the ones it carries.
-// The viewer's bar asks for the compact form, where a button floats the same menu off it.
 const tagEditorHtml = (path, compact) => `
   <div class="tag-editor${compact ? " tag-editor-compact" : " tag-editor-inline"}"
     data-path="${esc(path)}">
@@ -1523,8 +1488,7 @@ const wireTagEditor = (root, onChange) => {
 
   input.addEventListener("input", renderMenu)
 
-  // Enter and Escape belong to the editor; a modal's own handlers would otherwise save
-  // and close the whole dialog behind whichever button or field has focus here.
+  // Enter and Escape belong to the editor; a modal's own handlers would save and close it.
   root.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && root.classList.contains("menu-open")) {
       e.stopPropagation()
@@ -1588,8 +1552,6 @@ const tagRowHtml = (tag) => {
   </div>`
 }
 
-// Manage the catalog and pick which tags narrow the listing. Filter changes apply live, so
-// the folder behind the dialog already shows the result when it closes.
 const showTagManager = () => {
   const cleanup = showExtraModal({
     title: "Tags",
@@ -1740,7 +1702,7 @@ const searchBase = () => (searchScope === "root" ? homePath() : state.currentPat
 const baseName = (p) => p.slice(p.lastIndexOf("/") + 1)
 const dirName = (p) => p.slice(0, p.lastIndexOf("/")) || "/"
 
-// The folder a hit sits in, named the way the breadcrumb names it so the two agree.
+// Named the way the breadcrumb names it, so the two agree.
 const hitFolderLabel = (hitPath) => {
   const dir = dirName(hitPath)
   const home = homePath()
@@ -1774,8 +1736,8 @@ const searchHitHtml = (hit, q) => `
     <span class="search-hit-meta">${hit.isDir ? "" : fmtSize(hit.size)}</span>
   </button>`
 
-// A hit can be anywhere, so it is opened by landing in its folder first: that listing is what
-// the viewer, the editor and the breadcrumb all read from.
+// A hit can be anywhere, so open it by landing in its folder first: that listing is what feeds
+// the viewer, the editor and the breadcrumb.
 const goToHit = async (path, isDir) => {
   if (isDir) {
     navigate(path)
@@ -1788,8 +1750,7 @@ const goToHit = async (path, isDir) => {
 }
 
 const showFileSearch = () => {
-  // At home both scopes resolve to the same base, so the choice is noise there — hide it, but
-  // leave the remembered scope alone, or the next search in a subfolder silently goes drive-wide.
+  // At home both scopes resolve to the same base; hide the choice but keep the remembered scope.
   const atHome = state.currentPath === homePath()
   const folderLabel = atHome ? "" : baseName(state.currentPath)
 
@@ -1923,7 +1884,7 @@ const showFileSearch = () => {
     rows[next].scrollIntoView({ block: "nearest" })
   }
 
-  // Owns the dialog's keys outright: the shell's Enter would close on the keystroke that opens a hit.
+  // Owns the dialog's keys: the shell's Enter would close on the keystroke that opens a hit.
   document.getElementById("modal-extra").onkeydown = (e) => {
     if (e.key === "Escape") {
       close()
@@ -1967,19 +1928,15 @@ const showShareGone = () => {
 const applyShareChrome = () => {
   const hide = (sel) => document.querySelectorAll(sel).forEach((el) => el.classList.add("hidden"))
   hide(".js-logout")
-  // A link can't reach the top level, where buckets attach.
   hide("#new-s3-btn")
-  // Tags live in the owner's own store, which a link's holder can neither read nor write.
   hide("#sort-tags")
   hide("#options-tags-btn")
   hide("#editor-tags-btn")
   hide("#crumb-tags-btn")
-  // Links are the owner's to hand out; a link's holder can't mint more of them.
   hide("#options-share-btn")
   hide("#preview-share-btn")
   hide("#editor-share-btn")
   hide("#crumb-share-btn")
-  // How full the owner's disk is, and what fills it, is nothing a link speaks for.
   hide(".js-storage")
   if (!canEdit()) {
     hide("#options-move-btn")
@@ -2138,7 +2095,6 @@ const renderBreadcrumb = () => {
   const inert = atRoot || atOrInTrash(state.currentPath)
   // A trashed path keeps its dotfolder name; only the crumb reads as "Trash".
   const partLabel = (p) => (p === TRASH_DIR ? TRASH_LABEL : p)
-  // The root has no folder of its own to act on — it's the drive, or the link's whole share.
   const crumb = (name) =>
     inert
       ? `<span class="current"><span class="crumb-name">${esc(name)}</span></span>`
@@ -2271,8 +2227,7 @@ const handleHashNavigation = async ({ pushHash = true } = {}) => {
   try {
     data = await api("GET", `/api/files?path=${encodeURIComponent(hashPath)}`)
   } catch (e) {
-    // A deep link into a locked vault names folders only its index knows. Land on the vault
-    // itself and finish the trip once it opens, rather than bouncing the user home.
+    // A deep link into a locked vault names folders only its index knows; land on the vault itself.
     const climbed = await climbToVault(hashPath)
     if (!climbed) {
       toast(e.message, true)
@@ -2317,8 +2272,7 @@ const climbToVault = async (path) => {
 // An unlocked vault's folders exist only in its index, so it lists itself rather than the server.
 const applyVaultListing = (path, { pushHash = true } = {}) => {
   const sub = vaultSubOf(path)
-  // A path naming a file rather than a folder: land in its folder and open it, as a deep link
-  // to any other file does through the server's notDir.
+  // A path naming a file: land in its folder and open it, as the server's notDir does.
   if (!Vault.hasDir(sub)) {
     const name = baseName(path)
     applyVaultListing(parentPath(path), { pushHash })
@@ -2365,7 +2319,6 @@ const updateNewMenu = () => {
   vault.title = vault.disabled ? "A vault can't hold another vault" : ""
 }
 
-// The lock bar belongs to the open vault, so it appears with one and leaves with it.
 const updateVaultToggle = () => {
   document.getElementById("vault-bar").classList.toggle("hidden", !vaultUnlocked())
   // Search runs on the server, which sees a vault as a folder of ciphertext under random ids.
@@ -2393,8 +2346,7 @@ const navigate = async (path, { pushHash = true } = {}) => {
 }
 
 const entryHasThumb = (entry) => {
-  // A vault's previews are decrypted in the page one file at a time, which only pictures are
-  // cheap enough for: a video would have to come down whole to produce a single poster frame.
+  // A vault decrypts previews in the page, which only pictures are cheap enough for.
   if (state.inVault) return !entry.isDir && fileType(entry.name) === "image"
   if (entry.isDir) return !!entry.hasThumb
   const type = fileType(entry.name)
@@ -2408,11 +2360,9 @@ const entryFolderSort = (entry) => {
   return { by: s?.by || "name", dir: s?.dir || "asc" }
 }
 
-// Cache key for a file's bytes. Size is in it because an edit keeps the original's date, so a
-// replaced file would otherwise reuse every URL and cached answer the old one left behind.
+// Size is in the key because an edit keeps the original's date, so URLs would otherwise be reused.
 const entryVer = (entry) => `${entry.modified}|${entry.size}`
 
-// Thumbnail markup shared by list and grid; falls back to the type icon.
 const entryMediaHtml = (entry) => {
   const type = entry.isDir ? "folder" : fileType(entry.name)
   const rel = relPath(entry.name)
@@ -2451,7 +2401,7 @@ const entryMediaHtml = (entry) => {
   return `<span class="thumb-wrap">${img}${held}${pill}</span>`
 }
 
-// Dots, not chips: a row has no room for names, and the color is what makes a tag scannable.
+// Dots, not chips: a row has no room for names.
 const entryTagsHtml = (entry) => {
   // Tags are stored server-side against a path, which inside a vault would be its cleartext name.
   if (state.inVault) return ""
@@ -2462,7 +2412,6 @@ const entryTagsHtml = (entry) => {
   return `<span class="file-tags">${tags.map(dot).join("")}</span>`
 }
 
-// Unsaved folders default to grid when most entries have a thumbnail, else list.
 const defaultViewMode = () => {
   const withThumb = state.entries.filter(entryHasThumb).length
   return withThumb * 2 > state.entries.length ? "grid" : "list"
@@ -2511,9 +2460,7 @@ const renderFilesContent = () => {
   }
 }
 
-// Signature of everything that affects an item's rendered content (name is the reuse key).
-// Folders fold in their own saved sort so the preview refreshes when that folder's sort changes.
-// Tag colors, not just ids, so recoloring a tag repaints every dot that shows it.
+// Folder sort and tag colors are folded in, so a re-sort or a recolor repaints the item.
 const entrySig = (entry) => {
   const tags = tagsFor(relPath(entry.name))
     .map((t) => t.id + t.color)
@@ -2571,7 +2518,7 @@ const reconcileFiles = (container, wrapId, wrapClass, itemClass, itemHtml) => {
 const listItemHtml = (entry) => {
   const audio = !entry.isDir && fileType(entry.name) === "audio"
   const rel = relPath(entry.name)
-  // Length is the number that matters for a track; 00:00 holds the cell until the queue fills it.
+  // 00:00 holds the cell until the queue fills it.
   const dur = audio
     ? `<span class="file-duration" data-meta="${encodeURIComponent(rel)}" data-durkey="${esc(rel + entryVer(entry))}">00:00</span>`
     : ""
@@ -2797,8 +2744,7 @@ const updateViewToggle = () => {
   btn.title = grid ? "Grid view" : "List view"
 }
 
-// Picking the field in use reverses it; picking another starts at the direction that field reads
-// most naturally in — A–Z for names, newest and largest first for dates and sizes.
+// The direction each field reads most naturally in; picking the field in use just reverses it.
 const SORT_FIRST_DIR = { name: "asc", date: "desc", size: "desc" }
 
 const nextSortDir = (by) =>
@@ -2821,7 +2767,6 @@ const updateSortToggle = () => {
   })
 }
 
-// Tags moved into the sort menu, so its button is the only thing left to show a live filter on.
 const updateTagToggle = () => {
   const filtering = state.tagFilter.size
   const btn = document.getElementById("sort-btn")
@@ -2858,8 +2803,7 @@ const updateSelectionUI = () => {
   dis("details-btn", !single || trash)
   dis("options-btn", n === 0 || trash)
   dis("delete-btn", n === 0 || trash)
-  // Both act on one path; a multi-selection has no single one to tag or hand out. Inside a vault
-  // that path would be the file's cleartext name, which is the one thing the server must not learn.
+  // One path only; inside a vault that path is the cleartext name the server must not learn.
   dis("options-tags-btn", !single || trash || state.inVault)
   dis("options-share-btn", !single || trash || state.inVault)
   dis("options-move-btn", n === 0 || trash)
@@ -2874,7 +2818,7 @@ const updateSelectionUI = () => {
 
   const total = state.entries.length
   const label = n > 0 ? `${n} selected` : `${total} item${total === 1 ? "" : "s"}`
-  // Folders report no size, so a folder-only selection sums to 0; drop the size rather than show 0 B.
+  // Folders report no size, so a folder-only selection sums to 0; show nothing rather than 0 B.
   const bytes = (n > 0 ? selected : state.entries).reduce((sum, e) => sum + e.size, 0)
   document.getElementById("selection-count").textContent = label
   document.getElementById("selection-size").textContent = bytes ? fmtSize(bytes) : ""
@@ -2894,7 +2838,6 @@ const selectAll = () => {
   updateSelectionUI()
 }
 
-// Opens a file from its path alone, for the callers that have no listing row to hand over.
 const openLoneFile = (path, name) => {
   const type = fileType(name)
   if (type === "pdf" && !EMBEDS_PDF) {
@@ -2998,10 +2941,6 @@ const copyEntriesToDir = async (entries, destDir) => {
 
 // ─── Folder picker ────────────────────────────────────────────────────────────
 
-// Where a move, a copy, or a handed-over file goes. Drag-and-drop can only reach what is already
-// on screen, which on a phone is nowhere near the whole drive.
-
-// The same icon the listing gives the folder, so the picker reads as the drive it is picking from.
 const pickerRowHtml = (entry) => `
   <button type="button" class="picker-row" data-name="${esc(entry.name)}">
     <span class="file-icon">${fileIcon(entry)}</span>
@@ -3124,7 +3063,6 @@ const showFolderPicker = ({ title, okLabel, start, blocked = [], onPick }) => {
   render()
 }
 
-// A folder can't be moved or copied into itself or into anything below it.
 const pickerBlocked = (entries) => entries.filter((e) => e.isDir).map((e) => entryPath(e))
 
 const showMoveTo = (entries) => {
@@ -3363,15 +3301,13 @@ const uploadOne = (file, path, onProgress) =>
 
 // ─── Resumable upload ─────────────────────────────────────────────────────────
 
-// 8 MB: large enough that per-chunk overhead is noise, small enough that a dropped connection
-// or a phone locking its screen costs seconds of re-sending rather than the whole file.
+// 8 MB: per-chunk overhead is noise, and a dropped connection costs seconds, not the whole file.
 const CHUNK_BYTES = 8 << 20
 const CHUNK_RETRIES = 4
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-// Two rounds so the id doesn't collide on name alone; crypto.subtle is out, since it needs a
-// secure context and this app is often reached over plain HTTP on a home network.
+// Two rounds so the id doesn't collide on name alone; crypto.subtle needs a secure context.
 const strHash = (s) => {
   let a = 0x811c9dc5
   let b = 0x1000193
@@ -3383,8 +3319,7 @@ const strHash = (s) => {
   return a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0")
 }
 
-// Derived from the file itself, so re-sending one that failed halfway finds its own half-written
-// part on the server and picks up from there — no bookkeeping to keep, and none to go stale.
+// Derived from the file itself, so a re-send finds its own half-written part on the server.
 const uploadId = (file) =>
   strHash(`${file.name} ${file.size}`) +
   strHash(`${file.lastModified || 0} ${file.name}`) +
@@ -3475,7 +3410,7 @@ const putFile = (file, path, onProgress) =>
 // Directory picking is desktop-only; iOS Safari has no webkitdirectory to offer.
 const canPickFolders = () => "webkitdirectory" in HTMLInputElement.prototype
 
-// Files with the folder each belongs in, plus folders of their own so empty ones survive.
+// Folders are carried separately from the files so empty ones survive.
 const asUpload = (files, dirs = []) => ({
   files: Array.from(files).map((file) => {
     const rel = file.webkitRelativePath || ""
@@ -3484,7 +3419,6 @@ const asUpload = (files, dirs = []) => ({
   dirs,
 })
 
-// Joins under a path; "" leaves it alone rather than appending a trailing slash.
 const under = (path, rel) => (rel ? joinPath(path, rel) : path)
 
 // readEntries hands back one slice per call, so it is drained until it comes up empty.
@@ -3512,8 +3446,7 @@ const droppedUpload = async (dataTransfer) => {
       }
       return
     }
-    // Joined by hand, not through under(): these must read like webkitRelativePath, and a leading
-    // slash would stop every file inside from matching the folder map built from the same names.
+    // Joined by hand: these must read like webkitRelativePath, with no leading slash.
     const dir = relDir ? `${relDir}/${entry.name}` : entry.name
     dirs.push(dir)
     for (const child of await readEntries(entry.createReader())) await walk(child, dir)
@@ -3583,7 +3516,7 @@ const uploadFiles = async (upload, path) => {
     })
     return res?.name || name
   })
-  // The tree's own folders appear at once; the files inside them are not on screen to trickle in.
+  // Show the new folders at once; the files inside them aren't on screen to trickle in.
   const madeDirs = dirs.size > 1
   if (madeDirs && state.currentPath === path) await navigate(path)
 
@@ -3858,15 +3791,11 @@ const patchListBackspace = (root, view) => {
   )
 }
 
-// Links inside the WYSIWYG contenteditable don't navigate on click; open them ourselves.
-// Capture phase on the container so we run before ProseMirror's own click handling.
 const hideLinkPopover = () => {
   document.getElementById("link-popover").classList.add("hidden")
 }
 
-// Rewrite an existing link's URL (and optionally its text) via a ProseMirror
-// transaction so the change persists in the model (direct DOM edits get
-// discarded on re-render).
+// Goes through a ProseMirror transaction; a direct DOM edit is discarded on re-render.
 const setLink = (anchor, url, text) => {
   const view = state.mdeInstance?.wwEditor?.view
   const linkMark = view?.state.schema.marks.link
@@ -4085,7 +4014,6 @@ const colorAtSelection = (pmState) => {
   return c ? cssColorToHsl(c.trim()) : null
 }
 
-// Wires the toolbar color button: snapshot-based apply/reset plus custom HSL popup controls.
 const setupColorPicker = (mdWrap, toolbarEl, wwView) => {
   // Snapshot the selection on popup-open; clicking in the popup collapses the live one.
   let colorRange = null
@@ -4549,8 +4477,7 @@ const editorBack = () => {
   goBackToBrowser()
 }
 
-// Deleting the open file leaves the view; Back re-routes and refetches, so only the in-place
-// exit has to refresh the listing itself.
+// Back re-routes and refetches, so only the in-place exit has to refresh the listing itself.
 const deleteOpenEntry = (entry) =>
   deleteEntries([entry], {
     after: () => {
@@ -4560,8 +4487,7 @@ const deleteOpenEntry = (entry) =>
     },
   })
 
-// The listing was rebuilt under the open file, so follow it to its new name. A name the editor
-// can't hold — a media extension — drops us back out to the listing.
+// A name the editor can't hold — a media extension — drops us back out to the listing.
 const reopenEditorRenamed = (name) => {
   const entry = state.entries.find((e) => e.name === name)
   if (!entry || isMedia(name) || ["pdf", "archive"].includes(fileType(name))) {
@@ -4576,7 +4502,7 @@ const reopenEditorRenamed = (name) => {
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
-// Warm neighbors' display JPEGs so paging, and their server-side generation, stays ahead of the user.
+// Warm neighbors' display JPEGs so paging, and the server build behind it, stays ahead of the user.
 const prefetchNeighborDisplays = () => {
   if (state.inVault) return // there is no server-side re-encode of a file the server can't read
   for (const delta of [1, -1]) {
@@ -4589,8 +4515,7 @@ const prefetchNeighborDisplays = () => {
 
 const THUMB_MAX = 320 // the server's thumb cap; a thumb under it was never scaled, so is the original
 
-// A thumb stands in on the full image's rect, which for a small original is its own natural size —
-// left stretched to the box it blows up, then snaps back the moment the real image lands.
+// A thumb stands in on the full image's rect, which would stretch a small original to that box.
 const pinSmallStandIn = (img) => {
   const pin = () => {
     if (!img.naturalWidth || Math.max(img.naturalWidth, img.naturalHeight) >= THUMB_MAX) return
@@ -4603,8 +4528,7 @@ const pinSmallStandIn = (img) => {
 
 const DISPLAY_MAX = 1920 // the server's display cap; anything larger came back as the original
 
-// A display that isn't built yet redirects to the multi-MP original, which iOS repaints dark on
-// any transform — so a swipe blanks it. Poll the build and swap the re-encode in when it lands.
+// An unbuilt display redirects to the original, which iOS repaints dark on transform; poll for it.
 const upgradeToDisplay = async (img, displayUrl) => {
   if (Math.max(img.naturalWidth, img.naturalHeight) <= DISPLAY_MAX) return
   for (let wait = 500; wait < 16000; wait *= 2) {
@@ -4653,8 +4577,7 @@ const previewSrcs = (entry, path, name, type) => {
 
 const openPreview = async (path, name, type, { replace = false, paging = false } = {}) => {
   const entry = state.entries.find((e) => e.name === name)
-  // Nothing can be pointed at a vault file until its bytes exist in the page. A file the viewer
-  // won't paint has nothing to stall for, so its download does the decrypting instead.
+  // A file the viewer won't paint has nothing to stall for, so its download does the decrypting.
   const lazyVault = state.inVault && entry && previewsBlank(name)
   if (state.inVault && entry && !lazyVault) {
     try {
@@ -4708,7 +4631,7 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
   } else if (type === "audio") {
     const player = audioPlayer() || buildAudioPlayer()
     player.src = url
-    // Re-inserting the element drops iOS's lock screen session, so clear around it, not through it.
+    // Re-inserting the element drops iOS's lock screen session; clear around it, not through it.
     for (const node of [...body.childNodes]) if (node !== player) node.remove()
     if (player.parentNode !== body) body.appendChild(player)
     player.play().catch(() => {}) // a reused player has no autoplay pass of its own
@@ -4725,7 +4648,7 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
   }
   const view = document.getElementById("preview-view")
   view.classList.toggle("has-embed", type === "pdf")
-  // Only a photo takes the tap that toggles the chrome, so paging to anything else must restore it.
+  // Only a photo takes the tap that toggles the chrome, so paging elsewhere must restore it.
   if (type !== "image") view.classList.remove("chrome-hidden")
 
   const media =
@@ -4806,9 +4729,7 @@ const trimEntrylessPreviewOptions = () => {
     document.getElementById(id).classList.remove("hidden")
 }
 
-// The viewer's chrome: the open file's tags in the top bar, and the bottom bar's playback controls
-// when it is a song. Only the browser's dots are refreshed on a change: re-filtering here could
-// drop the open file out of state.entries, stranding the paging it feeds.
+// Only the browser's dots refresh on a change: re-filtering here could drop the open file out.
 const renderPreviewBar = (path, type) => {
   const bar = document.getElementById("preview-tagbar")
   const audio = type === "audio"
@@ -4817,7 +4738,7 @@ const renderPreviewBar = (path, type) => {
   const slot = document.getElementById("preview-tagslot")
   slot.innerHTML = state.share || state.inVault ? "" : tagEditorHtml(path, true)
   const editor = slot.querySelector(".tag-editor")
-  // Retagging the open song can move it in or out of a filtered queue, which moves the queue's ends.
+  // Retagging the open song can move it in or out of a filtered queue, moving the queue's ends.
   if (editor)
     wireTagEditor(editor, () => {
       renderFiles()
@@ -4831,8 +4752,6 @@ const updatePreviewNav = () => {
   document.getElementById("preview-next-btn").disabled = !previewNeighbor(1)
 }
 
-// The tool item names whatever the open file supports, and hides when nothing fits it.
-// Volume matching sits below it, and only for the file type it applies to.
 const updatePreviewTool = (name) => {
   // Runs on every open, so it must re-apply what applyShareChrome hid rather than undo it.
   const owned = !state.share
@@ -4853,17 +4772,14 @@ const updatePreviewTool = (name) => {
 const openPreviewEntry = (entry, { paging = false } = {}) =>
   openPreview(relPath(entry.name), entry.name, fileType(entry.name), { replace: true, paging })
 
-// The listing was rebuilt under the open file, so reopen it by its new name to pick up the fresh
-// entry, path and paging queue. Renaming to an extension the viewer can't show drops us back out.
+// Renaming to an extension the viewer can't show drops us back out to the listing.
 const reopenRenamed = (name) => {
   const entry = state.entries.find((e) => e.name === name)
   if (entry && (isViewable(name) || previewsBlank(name))) openPreviewEntry(entry)
   else goBackToBrowser()
 }
 
-// Land on what a media tool just produced, but only for an edit run from the viewer: there the
-// result replaces the file it came from. From the listing, refreshing it is the whole job — the
-// user is working through files, not through this one.
+// Only an edit run from the viewer lands on its output; from the listing, refreshing is the job.
 const openEditResult = async (name) => {
   await navigate(state.currentPath, { pushHash: false })
   if (document.getElementById("preview-view").classList.contains("hidden")) return
@@ -4878,11 +4794,9 @@ const previewNavigate = async (delta, { fromHead = null } = {}) => {
   // Stepping back asks for the neighbour again; it says nothing about the song being left.
   const back = delta < 0
   if (back) settleTagging(false, { keepOnly: true })
-  // Only a step off the newest song extends the run; from behind it, forward retraces old ground
-  // and stays behind until it catches up, so no skip along the way reads as a real one.
+  // Only a step off the newest song extends the run; retracing from behind reads as no skip.
   const extend = !back && (fromHead ?? state.audioTrack?.path === state.audioHead)
-  // Settled before the open, which draws the back button off it. The play queue carries the run's
-  // own history, so the stack only holds what it was paged into from — a photo it followed.
+  // The play queue holds the run's own history, so the trail only holds what it was paged in from.
   const from = currentPreviewEntry()?.name
   if (back) {
     if (state.audioTrail.at(-1) === entry.name) state.audioTrail.pop()
@@ -4911,8 +4825,7 @@ const setupPreviewSwipe = () => {
   const neighbor = (delta) => previewNeighbor(delta)
   const missing = (delta) => !neighbor(delta)
 
-  // Doubling back overrides the direction the drag opened in, so pulling out of a swipe drops it
-  // rather than paging anyway. Past the slop, so the jitter at the end of a hold isn't a reversal.
+  // Doubling back overrides the drag's opening direction; past the slop, so jitter isn't a reversal.
   const steer = () => {
     if (!dir) dir = Math.sign(dx) || 1
     else if ((dx - peak) * dir < -SWIPE_SLOP) dir = -dir
@@ -4937,7 +4850,6 @@ const setupPreviewSwipe = () => {
       ? `translateX(calc(-100% - ${SWIPE_GAP}px))`
       : `translateX(calc(100% + ${SWIPE_GAP}px))`
 
-  // What a neighbor looks like at rest: its thumbnail, or for a song the player, since it has none.
   // Unloaded until the drag is real, so a tap costs nothing.
   const peekHtml = (entry, type) => {
     const { thumb, original } = previewSrcs(entry, relPath(entry.name), entry.name, type)
@@ -5010,7 +4922,7 @@ const setupPreviewSwipe = () => {
       return
     }
     state.previewSliding = true
-    // Landing parks the peek dead centre, so the swap that follows repaints the same picture at rest.
+    // Landing parks the peek dead centre, so the swap that follows repaints the same picture.
     const out = restPos(delta)
     body.style.transform = out
     await slide(`translateX(${offset}px)`, out)
@@ -5043,13 +4955,13 @@ const setupPreviewSwipe = () => {
     start = { x: e.clientX, y: e.clientY, at: Date.now(), touch: e.pointerType === "touch" }
     dx = offset = dir = peak = 0
     gesture++
-    // A mouse dragged off the body would drop the rest of the gesture; touch is captured implicitly.
+    // A mouse dragged off the body would drop the gesture; touch is captured implicitly.
     if (!start.touch) {
       body.setPointerCapture(e.pointerId)
       // Otherwise the native image drag takes over and cancels the pointer stream.
       e.preventDefault()
     }
-    // Mounted before the drag is confirmed, so the thumbs are decoded by the first pixel of movement.
+    // Mounted before the drag is confirmed, so thumbs are decoded by the first pixel of movement.
     mountPeeks()
   })
 
@@ -5113,12 +5025,10 @@ const TAG_KEEP_SECS = 15 // heard this much and the song earns the tag; skipped 
 // Direct child only: a swipe's peek mounts a player of its own, and that one is scenery.
 const audioPlayer = () => document.querySelector("#preview-body > audio")
 
-// Not read off the paging queue: an archive opens without joining it, and a tag filter can drop
-// the open file out of the listing under it.
+// Not the paging queue: an archive opens without joining it, and a tag filter can drop it out.
 const currentPreviewEntry = () => state.previewEntry
 
-// The play queue: the folder's songs, narrowed to the picked tags. An empty result would strand
-// playback, so a selection nothing matches falls back to all of them.
+// An empty result would strand playback, so a tag selection nothing matches falls back to all.
 const audioQueue = () => {
   const songs = state.previewFiles.filter((e) => fileType(e.name) === "audio")
   if (!state.audioTags.size) return songs
@@ -5133,9 +5043,7 @@ const queuePos = (queue) => {
   return cur ? queue.findIndex((e) => e.name === cur.name) : -1
 }
 
-// A shuffled run's order, by name: the songs it has played, oldest first, plus the one it has
-// settled on to follow. Both ends deal, so the skip buttons page through what the run actually
-// played and stepping back over it retraces that, not the folder's order.
+// The songs a shuffled run has played, oldest first, plus the one it has settled on to follow.
 let shuffleOrder = []
 
 // The mix the tag being autotagged is set to, kept per tag so each pass remembers its own.
@@ -5144,7 +5052,7 @@ const audioMix = () => (state.audioTagging ? (state.audioMixes[state.audioTaggin
 // A mix needs a tag to weigh against, and random picks to weigh; shuffle is turned on with it.
 const mixShare = () => (audioMix() !== null && state.audioMode === "shuffle" ? audioMix() : null)
 
-// One side of the mix: the songs already carrying the tag being autotagged, or the ones without it.
+// One side of the mix: songs carrying the tag being autotagged, or the ones without it.
 const mixSide = (songs, without) => {
   const has = (e) => (state.fileTags[relPath(e.name)] || []).includes(state.audioTagging)
   return songs.filter((e) => has(e) !== without)
@@ -5169,15 +5077,13 @@ const dealForward = (queue, share) => {
   const side = mixRoll(share)
   const fresh = side(queue.filter((e) => !shuffleOrder.includes(e.name)))
   if (fresh.length) return pickFrom(fresh)
-  // The side has played out: it deals a fresh pass rather than defecting to the other, which at 0
-  // and 100 is the whole point. Only a side with no songs at all hands the pick over.
+  // A played-out side deals a fresh pass rather than defecting, which at 0 and 100 is the point.
   const rest = queue.filter((e) => e.name !== cur)
   shuffleOrder = queue.some((e) => e.name === cur) ? [cur] : []
   return pickFrom(side(rest), rest)
 }
 
-// What sits before the run's first song: a pick of its own, put in front, so back off the song a
-// run opened with is random like the rest of it and forward from there lands back on that song.
+// A pick of its own, put in front, so back off the run's first song is random like the rest.
 const dealBack = (queue, share) => {
   const cur = currentPreviewEntry()?.name
   const side = mixRoll(share)
@@ -5189,9 +5095,7 @@ const dealBack = (queue, share) => {
   return prev
 }
 
-// The run's order. A pick is committed as the order is read, so the peek, the skip button and the
-// ending song all land on the same one, and drawing them one at a time lets a tag earned mid-pass
-// count. Reading the same end twice deals nothing new, since the first pick is now part of it.
+// A pick is committed as the order is read, so peek, skip button and ending song all agree.
 const shuffledQueue = (queue, share) => {
   const cur = currentPreviewEntry()?.name
   const inQueue = (n) => queue.some((e) => e.name === n)
@@ -5221,7 +5125,7 @@ const trailBack = () => {
 
 // What paging lands on: a song steps through the play queue, anything else through the folder.
 const previewNeighbor = (delta) => {
-  // A file outside the paging queue (an archive) sits at -1, where +1 would land on the first file.
+  // A file outside the paging queue (an archive) sits at -1, where +1 would land on the first.
   if (state.previewIdx < 0 && state.previewType !== "audio") return undefined
   if (state.previewType !== "audio") return state.previewFiles[state.previewIdx + delta]
   const songs = audioQueue()
@@ -5231,8 +5135,7 @@ const previewNeighbor = (delta) => {
   if (at < 0) return order[0]
   const step = order[at + delta]
   if (step) return step
-  // Past its end the queue comes round again, so a song's skip buttons are always there, whatever
-  // the mode and however the play tags narrow it. Only shuffle can run off the front of its order.
+  // Past its end the queue comes round again; only shuffle can run off the front of its order.
   if (delta > 0) return order[0]
   // Back off the head leaves the run for whatever it was paged into from; shuffle deals instead.
   const from = trailBack()
@@ -5241,16 +5144,14 @@ const previewNeighbor = (delta) => {
   return order.at(-1)
 }
 
-// Tagging's verdict on the song being left: heard it out, it keeps the tag; skipped, it loses it.
-// Reports whether a tag moved.
+// Heard out, the song keeps the tag; skipped, it loses it. Returns whether a tag moved.
 const settleTagging = (finished, { keepOnly = false } = {}) => {
   const track = state.audioTrack
   state.audioTrack = null
   const tag = tagById(state.audioTagging)
   if (!tag || !track || track.manual) return false
   const keep = finished || (audioPlayer()?.currentTime || 0) >= TAG_KEEP_SECS
-  // Anything behind the head was chosen, not auditioned, so leaving it again can't drop the tag;
-  // earning one still counts. keepOnly withholds the drop for a departure that was no skip.
+  // Anything behind the head was chosen, not auditioned; keepOnly withholds the drop as well.
   if (!keep && (keepOnly || track.path !== state.audioHead)) return false
   if (keep === (state.fileTags[track.path] || []).includes(tag.id)) return false
   setFileTag(track.path, tag.id, keep)
@@ -5300,8 +5201,7 @@ const clearMediaSession = () => {
 
 // ─── Loudness normalization ───────────────────────────────────────────────────
 
-// The gain applied to the song in flight. The element's volume is the product of this and what
-// the user set, so the two stay separable: reading volume back through it recovers their setting.
+// The element's volume is this times the user's, so reading it back recovers their setting.
 let trackGain = 1
 let userVolume = cachedVolume >= 0 && cachedVolume <= 1 ? cachedVolume : 1
 // Rises with every track change, so a measurement that arrives after a skip is discarded.
@@ -5309,8 +5209,7 @@ let gainToken = 0
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v))
 
-// iOS ignores writes to element volume, reserving the level for the hardware buttons, so there is
-// no levelling to be had: the feature is hidden there rather than left ticking over doing nothing.
+// iOS reserves the level for the hardware buttons, so there is no levelling to be had there.
 const VOLUME_LOCKED = (() => {
   const ua = navigator.userAgent
   // Newer WebKit keeps the value it was handed but still ignores it, so the probe can be fooled.
@@ -5321,7 +5220,6 @@ const VOLUME_LOCKED = (() => {
   return probe.volume !== 0.5
 })()
 
-// Every gain-side path asks this, so a platform that can't apply one never measures either.
 // A vault song is measured nowhere: the server holds only its ciphertext.
 const normalizeOn = () => state.audioNormalize && !state.share && !state.inVault && !VOLUME_LOCKED
 
@@ -5331,8 +5229,7 @@ const applyTrackGain = (gain) => {
   if (player) player.volume = clamp01(userVolume * gain)
 }
 
-// Cached per path: the figure can't change for a file, and a warmed one lands before the song does,
-// which is the whole trick — a gain applied after the music starts is an audible jump.
+// A warmed gain lands before the song does; applied after the music starts it's an audible jump.
 const gainCache = new Map()
 // Warming and opening can reach for the same song at once; they share the one request.
 const gainPending = new Map()
@@ -5351,12 +5248,10 @@ const fetchGain = (path) => {
   return pending
 }
 
-// Warming runs one file at a time: each measurement decodes a whole file server-side, and a folder
-// of songs asked for at once would bury it.
+// One file at a time: each measurement decodes a whole file server-side.
 const gainQueue = []
 let warming = false
-// The measurement the song on screen is waiting on. Warming stands aside for it: the server scans
-// two files at a time, and a queue of warming is what makes a level land ten seconds in.
+// The measurement the song on screen waits on; warming stands aside for it.
 let urgentGain = null
 
 const runGainQueue = async () => {
@@ -5389,7 +5284,6 @@ const warmGains = (paths, { soon = false, only = false } = {}) => {
 }
 
 // Either way out of the open song is one skip away, so both neighbours are worth having ready.
-// Called once the viewer has placed the song in its queue, which is what says who they are.
 const warmNeighborGains = () =>
   warmGains(
     [previewNeighbor(-1), previewNeighbor(1)]
@@ -5404,8 +5298,7 @@ const warmVisibleGains = (items, pathOf) =>
     only: true,
   })
 
-// Measuring decodes the whole file, so the answer is fetched once and cached server-side. A warmed
-// song is levelled from its first note; one that isn't plays at the user's own level until it lands.
+// A warmed song is levelled from its first note; one that isn't plays at the user's own level.
 const loadTrackGain = async (path) => {
   const token = ++gainToken
   if (!normalizeOn()) {
@@ -5429,8 +5322,7 @@ const loadTrackGain = async (path) => {
   if (urgentGain === mine) urgentGain = null
 }
 
-// One player serves every song: a fresh element loses the playback iOS unlocked on the first tap,
-// so the next track would go silent and the lock screen's controls would drop out with it.
+// One player serves every song: a fresh element loses the playback iOS unlocked on the first tap.
 const buildAudioPlayer = () => {
   const player = document.createElement("audio")
   player.controls = true
@@ -5444,7 +5336,7 @@ const buildAudioPlayer = () => {
   const mark = (s) => navigator.mediaSession && (navigator.mediaSession.playbackState = s)
   player.addEventListener("play", () => mark("playing"))
   player.addEventListener("pause", () => mark("paused"))
-  // iOS falls back to its own skip buttons unless the handlers are re-registered after each src loads.
+  // iOS falls back to its own skip buttons unless the handlers are re-registered per src load.
   player.addEventListener("loadedmetadata", () => {
     wireMediaSession(player)
     const entry = state.previewType === "audio" && currentPreviewEntry()
@@ -5455,8 +5347,7 @@ const buildAudioPlayer = () => {
     const fromHead = state.audioTrack?.path === state.audioHead
     const moved = settleTagging(true)
     if (state.audioMode !== "off") return previewNavigate(1, { fromHead })
-    // Nothing follows, so the finished song stays up: redraw only if tagging changed its chips,
-    // since a rebuild would close whatever menu the bar has open.
+    // A rebuild would close whatever menu the bar has open, so redraw only if the chips changed.
     const entry = currentPreviewEntry()
     if (moved && entry) renderPreviewBar(relPath(entry.name), "audio")
   })
@@ -5536,8 +5427,7 @@ const mixHtml = () => {
   </div>`
 }
 
-// A share link carries no tags, so a visitor gets the autoplay control and nothing else. The menus
-// are left empty here and filled on open, so a tag added from the row below shows up without one.
+// The menus are filled on open, so a tag added from the row below shows up without a rebuild.
 const audioBarHtml = () => {
   const tagging = tagById(state.audioTagging)
   return `
@@ -5846,8 +5736,6 @@ const replaceRowHtml = (label) => `
 // Parks the playhead this far before a moved end mark, so play auditions the cutoff, not silence.
 const TRIM_TAIL_PREVIEW = 3
 
-// Trim: a scrub bar of its own, so the span being kept is something you can see and drag rather
-// than two numbers to reason about.
 const showTrimAudio = (path, name) => {
   const page = audioPlayer()
   // Its own element: sharing the viewer's player let page playback drive this dialog.
@@ -5988,8 +5876,7 @@ const showTrimAudio = (path, name) => {
     else seek(cursor)
   }
 
-  // Read from the element rather than assumed: a play() the browser refuses must not leave the
-  // button showing a pause icon over silence.
+  // Read from the element: a play() the browser refuses must not leave a pause icon over silence.
   const syncPlayIcon = () => {
     playBtn.classList.toggle("playing", !audio.paused)
     playBtn.querySelector("use").setAttribute("href", audio.paused ? "#icon-play" : "#icon-pause")
@@ -6124,7 +6011,6 @@ const showTrimAudio = (path, name) => {
 
 const IMAGE_SIZE_PRESETS = [1280, 1920, 2560, 4096]
 
-// One dialog for the whole batch: the settings are the same for every image in it.
 const showResizeImages = (items) => {
   const many = items.length > 1
   const cleanup = showExtraModal({
@@ -6154,8 +6040,7 @@ const showResizeImages = (items) => {
         quality: Number(extra.querySelector("#img-quality").value),
         replace: extra.querySelector(".tool-replace").checked,
       }
-      // One that can't be resized — already small, or an encode the server rejects — is skipped
-      // rather than abandoning the rest of the batch.
+      // A file that can't be resized is skipped rather than abandoning the rest of the batch.
       const done = []
       let failure = null
       for (const [i, item] of items.entries()) {
@@ -6179,7 +6064,7 @@ const showResizeImages = (items) => {
       const skipped = items.length - done.length
       const what = many ? `Resized ${done.length} images` : `Saved “${done[0].name}”`
       toast(`${what} — ${fmtSize(was)} → ${fmtSize(size)}${skipped ? `, ${skipped} skipped` : ""}`)
-      // A batch has no single result to land on, so it goes back to the listing that holds them all.
+      // A batch has no single result to land on, so it goes back to the listing holding them all.
       if (done.length === 1) return openEditResult(done[0].name)
       await navigate(state.currentPath, { pushHash: false })
       showBrowser()
@@ -6256,8 +6141,7 @@ const showResizeVideo = (path, name) => {
 const isResizableImage = (name) =>
   fileType(name) === "image" && !isRaw(name) && extOf(name) !== "svg"
 
-// The one tool that fits this file, or null when nothing does. Mounted objects are excluded:
-// editing one would mean pulling it down and pushing it back, billed both ways.
+// Mounted objects are excluded: editing one would mean pulling it down and pushing it back.
 const mediaToolFor = (name) => {
   // A vault's files are ciphertext to ffmpeg, and handing it the plaintext would defeat the vault.
   if (state.inMount || state.share || state.inVault) return null
@@ -6269,8 +6153,7 @@ const mediaToolFor = (name) => {
   return null
 }
 
-// The toolbar acts on a whole selection, so a tool has to fit every file in it. Resizing is the
-// only one that takes a batch; the rest need the selection narrowed to a single file.
+// Resizing is the only tool that takes a batch; the rest need a single file.
 const selectionTool = (entries) => {
   if (!entries.length || entries.some((e) => e.isDir)) return null
   if (
@@ -6291,13 +6174,8 @@ const selectionTool = (entries) => {
 
 // ─── Vault ────────────────────────────────────────────────────────────────────
 
-// An encrypted folder. Everything here runs on plaintext that exists only in this tab: the
-// server stores age ciphertext and never receives the passphrase. See vault.js for the format.
-//
-// A vault browses like any other folder — same list, grid, viewer and editor — because its index
-// is turned into an ordinary listing and its blobs into blob: URLs those views can point at. What
-// it can't borrow is anything the server would have to read the file to answer: video posters,
-// durations, tags, share links, zips and the media tools are all off inside one.
+// Plaintext lives only in this tab: the server holds age ciphertext and never sees the passphrase.
+// The index becomes an ordinary listing and the blobs blob: URLs, so the usual views work.
 
 const VAULT_MIN_PASSPHRASE = 12
 
@@ -6312,8 +6190,7 @@ const VAULT_FALLBACK_MIME = {
   pdf: "application/pdf",
 }
 
-// Decrypted bytes, held as blob URLs so the ordinary views work unchanged. Revoking them on lock
-// and on the way out of the vault is what keeps plaintext from outliving the folder it came from.
+// Revoked on lock and on the way out, so plaintext never outlives the folder it came from.
 const vaultBlobs = new Map() // id -> blob: URL
 const vaultPending = new Map() // id -> in-flight decryption, so a thumb and a preview share one
 let vaultGen = 0 // bumped on release; a decryption that lands after it has nothing left to belong to
@@ -6365,8 +6242,8 @@ const vaultSubOf = (path) => {
 
 const vaultSub = () => vaultSubOf(state.currentPath)
 
-// Locking drops everything decrypted, and with it any view built on it, so it leaves the browser
-// at the vault's own folder — the one path inside it the server can still list.
+// Locking drops every decrypted view, so it leaves the browser at the vault's own folder — the
+// one path inside it the server can still list.
 const lockVault = (message) => {
   Vault.lock()
   releaseVaultBlobs()
@@ -6429,7 +6306,6 @@ const renderVaultLocked = (container) => {
   })
 }
 
-// New > Vault: makes the folder, then seals it. Both steps must land or the folder is removed.
 const showVaultCreate = () => {
   showModal({
     title: "New vault",
@@ -6550,7 +6426,7 @@ const uploadToVault = async (upload, path) => {
   const dirs = await makeUploadDirs(upload, (at, name, unique) =>
     Vault.mkdir(under(root, at), name, { unique })
   )
-  // The tree's own folders appear at once; the files inside them are not on screen to trickle in.
+  // Show the new folders at once; the files inside them aren't on screen to trickle in.
   if (dirs.size > 1 && state.currentPath === path) await navigate(path, { pushHash: false })
 
   for (let i = 0; i < files.length; i++) {
@@ -6570,7 +6446,7 @@ const uploadToVault = async (upload, path) => {
           barEl.style.width = `${Math.round((at / totalBytes) * 100)}%`
         },
       })
-      // Refresh per file so a long batch fills in as it lands, rather than staying empty throughout.
+      // Refresh per file so a long batch fills in as it lands rather than staying empty.
       if (!relDir && state.currentPath === path) await navigate(path, { pushHash: false })
     } catch (e) {
       toast(`Failed to add “${file.name}”: ${e.message}`, true)
@@ -6587,8 +6463,7 @@ const uploadToVault = async (upload, path) => {
   }, 1500)
 }
 
-// The browser can only be handed bytes it already holds, so a vault download is one file at a
-// time: there is no server-side zip that could reach inside.
+// One file at a time: the browser can only be handed bytes it holds, and no server zip reaches in.
 const saveVaultFile = async (entry) => {
   try {
     const a = document.createElement("a")
@@ -6637,9 +6512,6 @@ const doLogin = async () => {
 }
 
 // ─── Drop box ─────────────────────────────────────────────────────────────────
-
-// What a drop link's visitor works with: a list of what they have handed over, and nothing of
-// the folder itself. Every row is their own file, so naming them gives away nothing.
 
 let dropRowSeq = 0
 
@@ -6707,8 +6579,7 @@ const showDropView = (info) => {
 
 // ─── Install & hand-off ───────────────────────────────────────────────────────
 
-// Registered for the owner only. A share link's visitor leaves nothing of the folder they were
-// shown cached on their device, and has nothing to install.
+// Owner only: a share visitor caches nothing of the folder and has nothing to install.
 const registerWorker = () => {
   if (!("serviceWorker" in navigator) || isShareUrl()) return
   navigator.serviceWorker.register("/sw.js").catch(() => {})
@@ -6719,8 +6590,7 @@ const clearWorkerData = () => {
   navigator.serviceWorker?.controller?.postMessage({ type: "clear-data" })
 }
 
-// Files handed over by the system share sheet. The worker parked them in a cache and bounced
-// the browser here, since a share target can't render a page of its own.
+// The worker parked them in a cache and bounced here; a share target can't render its own page.
 const takeSharedFiles = async () => {
   if (!new URLSearchParams(location.search).has("shared")) return
   history.replaceState(null, "", location.pathname + location.hash)
@@ -6817,8 +6687,7 @@ const init = async () => {
       }
     } catch {
       settleBoot()
-      // Offline: the session can't be checked from here, but a signed-in browser still has its
-      // last listing in the worker's cache, which beats a login form nothing can be typed into.
+      // Offline: a signed-in browser still has its last listing cached, which beats a dead form.
       if (document.cookie.split("; ").indexOf("sd_authed=1") !== -1) {
         showApp()
         await handleHashNavigation({ pushHash: false })
@@ -7077,7 +6946,7 @@ const init = async () => {
   })
   document.addEventListener("click", () => sortPopover.classList.remove("open"))
   sortPopover.addEventListener("click", (e) => e.stopPropagation())
-  // Everything here but Tags leaves the menu open: one field row now holds both directions.
+  // Everything here but Tags leaves the menu open; one field row holds both directions.
   document.getElementById("sort-tags-btn").addEventListener("click", () => {
     sortPopover.classList.remove("open")
     showTagManager()

@@ -16,8 +16,7 @@ func (s *server) prefsHandler(w http.ResponseWriter, r *http.Request) {
 	s.serveJSONBlob(w, r, &s.prefsMu, s.cfg.PrefsPath, maxPrefsBytes)
 }
 
-// serveJSONBlob reads and writes a whole JSON object the client owns; beyond checking that it
-// parses as an object, the server never looks inside it.
+// serveJSONBlob stores a JSON object the client owns; the server never looks inside it.
 func (s *server) serveJSONBlob(w http.ResponseWriter, r *http.Request, mu *sync.Mutex, path string, maxBytes int) {
 	switch r.Method {
 	case http.MethodGet:

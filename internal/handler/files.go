@@ -128,10 +128,7 @@ func (s *server) filesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A vault's directory holds only its own machinery and blobs named by random id, none of it
-	// meant for the browser: its contents are listed from the encrypted index instead. Withholding
-	// them here is what keeps RECOVERY.md out of SimpleDrive while leaving it in the folder itself,
-	// where a desktop finds it if this server ever isn't there to ask.
+	// A vault holds only machinery and random-id blobs; the client lists it from its own index.
 	if isVaultDir(abs) {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"path":    relOf(abs, s.cfg.RootDir),
@@ -164,8 +161,7 @@ func (s *server) filesHandler(w http.ResponseWriter, r *http.Request) {
 			child := filepath.Join(abs, info.Name())
 			e.IsTrash = atRoot && info.Name() == trashDirName
 			e.IsVault = isVaultDir(child)
-			// Neither wants a preview of its contents: a vault holds only ciphertext, and the
-			// trash should read as the trash rather than as whatever was last thrown away.
+			// A vault holds only ciphertext, and the trash should read as the trash.
 			if !e.IsVault && !e.IsTrash {
 				e.HasThumb = s.thumbs.folderChild(child, fi.ModTime(), "name", false) != ""
 			}
@@ -183,7 +179,6 @@ func (s *server) filesHandler(w http.ResponseWriter, r *http.Request) {
 		entries = append(entries, mounts...)
 	}
 
-	// Dirs first, then files, both sorted by name.
 	sortEntriesForListing(entries)
 
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -847,7 +842,6 @@ func (s *server) deleteHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
-	// Refuse to delete the root itself.
 	if res.abs == s.cfg.RootDir {
 		jsonErr(w, "cannot delete root", http.StatusBadRequest)
 		return

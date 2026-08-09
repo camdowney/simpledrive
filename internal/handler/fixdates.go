@@ -7,8 +7,7 @@ import (
 	"time"
 )
 
-// fixDatesHandler — POST /api/files/fixdates?path=<rel> re-stamps the folder's media files
-// whose mtime disagrees with their embedded capture time (uploads saved before dates stuck).
+// fixDatesHandler — POST /api/files/fixdates?path=<rel> re-stamps media mtimes from capture time.
 func (s *server) fixDatesHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)

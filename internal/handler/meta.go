@@ -20,8 +20,7 @@ type fileMeta struct {
 	Created   string `json:"created,omitempty"`
 }
 
-// metaHandler — GET /api/files/meta?path=<rel> returns a file's creation time and,
-// for images, its pixel dimensions and EXIF capture time.
+// metaHandler — GET /api/files/meta?path=<rel> returns created, and an image's size and EXIF date.
 func (s *server) metaHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -120,8 +119,7 @@ func mediaTakenTime(abs string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-// readImageMeta fills dimensions and EXIF capture time; silently leaves them unset
-// if the file can't be decoded.
+// readImageMeta fills dimensions and EXIF capture time, leaving them unset if it can't decode.
 func readImageMeta(abs string, modTime time.Time, meta *fileMeta) {
 	f, err := os.Open(abs)
 	if err != nil {
@@ -151,8 +149,7 @@ func readImageMeta(abs string, modTime time.Time, meta *fileMeta) {
 	}
 }
 
-// exifDateTaken returns the capture time from a TIFF-encoded EXIF block, preferring
-// DateTimeOriginal, then DateTimeDigitized in the Exif sub-IFD, then IFD0's DateTime.
+// exifDateTaken prefers DateTimeOriginal, then DateTimeDigitized, then IFD0's DateTime.
 func exifDateTaken(tiff []byte) (time.Time, bool) {
 	order, ifd0, ok := exifByteOrder(tiff)
 	if !ok {
@@ -191,8 +188,7 @@ func exifByteOrder(tiff []byte) (binary.ByteOrder, int, bool) {
 	return order, int(order.Uint32(tiff[4:8])), true
 }
 
-// exifFindEntry locates a tag within the IFD at ifdOff, returning its type, count,
-// and the offset of its 4-byte value/offset field.
+// exifFindEntry locates a tag in the IFD at ifdOff, returning the offset of its 4-byte value.
 func exifFindEntry(tiff []byte, order binary.ByteOrder, ifdOff int, tag uint16) (typ uint16, count uint32, valOff int, ok bool) {
 	if ifdOff < 0 || ifdOff+2 > len(tiff) {
 		return

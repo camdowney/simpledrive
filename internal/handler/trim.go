@@ -84,8 +84,7 @@ func (s *server) trimAudioHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, res)
 }
 
-// trimAudio copies the selected span out without re-encoding. ffmpeg can only cut on a frame
-// boundary, so the result lands within a frame (~26ms for MP3) of the requested points.
+// No re-encode: ffmpeg cuts on frame boundaries, so marks land within ~26ms (MP3) of the request.
 func trimAudio(bin, src, dst string, start, end float64) error {
 	// The temp file commitEdit hands over has no extension for ffmpeg to infer a muxer from.
 	format, err := trimFormat(src)

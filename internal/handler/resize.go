@@ -163,8 +163,7 @@ type jpegMeta struct {
 	icc  []byte // colour profile, reassembled from its APP2 chunks
 }
 
-// readJPEGMeta walks the segments ahead of the scan and keeps the ones worth carrying. Dropping
-// the profile would leave a P3 or Adobe RGB photo read as sRGB, which renders it washed out.
+// readJPEGMeta keeps the segments worth carrying: without the profile a P3 photo reads as sRGB.
 func readJPEGMeta(r io.Reader) jpegMeta {
 	var m jpegMeta
 	iccChunks := map[byte][]byte{}
@@ -413,8 +412,7 @@ func (s *server) localEditTarget(r *http.Request, rel string, allowed map[string
 	return res.abs, nil
 }
 
-// commitEdit runs write into a temp file beside the source, then lands it either as a new
-// sibling or over the original, whose previous contents go to the trash rather than vanishing.
+// commitEdit lands write's output as a sibling, or over the original, whose bytes go to the trash.
 func (s *server) commitEdit(srcAbs, outName string, replace bool, write func(dst string) error) (string, error) {
 	dir := filepath.Dir(srcAbs)
 	tmp, err := os.CreateTemp(dir, ".edit-*")

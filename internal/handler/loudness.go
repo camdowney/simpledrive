@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	// Playback target. Gain only ever attenuates (HTMLMediaElement.volume caps at 1), so this sits
-	// below the mastering level of essentially every track rather than at a broadcast -23 LUFS.
+	// Gain only attenuates (volume caps at 1), so this sits below almost every track's master level.
 	loudnessTargetLUFS = -18.0
 	// A scan decodes the whole file, so it needs far longer than a thumbnail's frame grab.
 	loudnessTimeout = 3 * time.Minute
@@ -26,8 +25,7 @@ const (
 	loudnessMinGain = 0.05
 )
 
-// loudnessHandler — GET /api/files/loudness?path=<rel> returns the playback gain for a track.
-// The measurement is cached by content hash, so only the first play of a file pays for it.
+// loudnessHandler — GET /api/files/loudness?path=<rel> returns a track's gain, cached by content.
 func (s *server) loudnessHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -89,8 +87,7 @@ func loudnessGain(lufs float64) float64 {
 	return math.Round(g*100) / 100
 }
 
-// loudness answers from the sidecar, scanning once per content otherwise. A failed scan is
-// recorded too, so an undecodable file isn't rescanned on every play.
+// loudness answers from the sidecar; a failed scan is recorded so it isn't retried every play.
 func (c *thumbCache) loudness(hash, src string) (durInfo, bool) {
 	if di, ok := c.readDur(hash); ok && di.LUFSMeasured {
 		return di, di.LUFS != 0
@@ -137,8 +134,7 @@ func scanLoudness(bin, src string) float64 {
 	return lufs
 }
 
-// parseEBUR128 pulls integrated loudness out of the meter's trailing summary block. The per-frame
-// lines carry an "I:" too, so only the one after "Integrated loudness" counts.
+// parseEBUR128 reads the trailing summary: per-frame lines carry an "I:" that must not match.
 func parseEBUR128(r io.Reader) float64 {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64<<10), 1<<20)

@@ -10,11 +10,15 @@
 
 ### Comments
 
-- Comment only when the _why_ is non-obvious (a workaround, quirk, or
-  constraint); never narrate _what_ the code does. Prefer self-explanatory code.
+- The default is no comment. A function, const, or section does not earn one by
+  existing; write one only when the _why_ is non-obvious (a workaround, a browser
+  or vendor quirk, a constraint, a magic number). Never narrate _what_ the code
+  does, restate the name, or record history ("moved here", "used to be").
 - A whole comment (total text, not per line) must be 100 characters or fewer
   unless absolutely necessary — keep it to one terse line, shortening the
   wording rather than wrapping across lines. Applies to all files, Go included.
+  Go doc comments are held to the same bar: the reason, not a paraphrase of the
+  signature.
 
 ### CSS (`web/static/css/style.css`)
 

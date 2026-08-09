@@ -12,8 +12,7 @@ import (
 // swVersionMark is replaced with the asset fingerprint as the worker is served.
 const swVersionMark = "__SD_VERSION__"
 
-// assetVersion fingerprints the embedded web assets. The worker caches under it, so a rebuilt
-// binary serves a worker whose caches are new — nothing survives from the previous build.
+// assetVersion fingerprints the embedded assets: the worker caches under it, so a rebuild is new.
 func assetVersion(webFS fs.FS) string {
 	var paths []string
 	fs.WalkDir(webFS, "web", func(p string, d fs.DirEntry, err error) error {
@@ -33,8 +32,7 @@ func assetVersion(webFS fs.FS) string {
 	return hex.EncodeToString(h.Sum(nil))[:12]
 }
 
-// serviceWorkerHandler serves the worker from the root, which is the scope it needs to cover the
-// whole app; under /static/ it could only ever control /static/.
+// Served from the root for scope: under /static/ the worker could only ever control /static/.
 func (s *server) serviceWorkerHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := fs.ReadFile(s.webFS, "web/static/js/sw.js")
 	if err != nil {

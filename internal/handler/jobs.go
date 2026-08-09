@@ -296,8 +296,7 @@ func (s *server) resizeVideoHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "id": j.ID})
 }
 
-// transcodeVideo re-encodes to H.264/AAC at the target height, reporting progress as it goes.
-// H.264 is the point as much as the size is: it decodes in hardware where HEVC often doesn't.
+// transcodeVideo re-encodes to H.264/AAC: H.264 decodes in hardware where HEVC often doesn't.
 func (s *server) transcodeVideo(j *job, src, dst string, height, crf int) error {
 	total := 0
 	if s.thumbs.ffprobe != "" {

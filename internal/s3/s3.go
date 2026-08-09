@@ -1,5 +1,5 @@
-// Package s3 is a minimal S3 REST client: SigV4 signing plus the handful of
-// operations SimpleDrive needs. It avoids the AWS SDK to keep the binary small.
+// Package s3 is a minimal S3 REST client: SigV4 plus the few operations SimpleDrive needs,
+// avoiding the AWS SDK to keep the binary small.
 package s3
 
 import (

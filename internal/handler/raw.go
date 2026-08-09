@@ -14,8 +14,7 @@ import (
 	"time"
 )
 
-// Raw camera files are TIFF containers holding a ready-made JPEG preview; we serve that
-// rather than demosaicing the sensor, which would need a C raw library.
+// Raws are TIFF containers holding a ready-made JPEG; demosaicing would need a C raw library.
 var rawThumbExts = map[string]bool{".arw": true}
 
 const (
@@ -50,8 +49,7 @@ func rawHeader(ra io.ReaderAt, size int64) ([]byte, binary.ByteOrder, int, bool)
 	return head, order, ifd0, true
 }
 
-// rawPreview returns the largest JPEG embedded in a raw file, with EXIF orientation applied
-// so browsers rotate it the way the camera recorded it.
+// rawPreview returns the largest embedded JPEG, with the container's EXIF orientation applied.
 func rawPreview(ra io.ReaderAt, size int64) ([]byte, error) {
 	head, order, ifd0, ok := rawHeader(ra, size)
 	if !ok {
@@ -71,8 +69,7 @@ func rawPreview(ra io.ReaderAt, size int64) ([]byte, error) {
 	return withOrientation(buf, parseExifOrientation(head)), nil
 }
 
-// largestEmbeddedJPEG scans the IFD chain, its SubIFDs and Sony's MakerNote for preview JPEGs,
-// returning the biggest since cameras store a tiny thumbnail alongside a usable preview.
+// Cameras store a tiny thumbnail alongside a usable preview, so the biggest one is what's wanted.
 func largestEmbeddedJPEG(tiff []byte, order binary.ByteOrder, ifd0 int) (int64, int) {
 	bestOff, bestLen := 0, 0
 	consider := func(off, length int) {
@@ -152,8 +149,7 @@ func exifNextIFD(tiff []byte, order binary.ByteOrder, ifdOff int) int {
 	return int(order.Uint32(tiff[end:]))
 }
 
-// withOrientation splices a minimal EXIF block into a preview that carries none, so the
-// container's rotation isn't lost; previews that already declare one are left alone.
+// withOrientation splices EXIF into a preview carrying none, so the container's rotation survives.
 func withOrientation(jpg []byte, orientation int) []byte {
 	if orientation <= 1 || orientation > 8 || len(jpg) < 2 {
 		return jpg
@@ -233,8 +229,8 @@ func rawDimensions(tiff []byte, order binary.ByteOrder, ifd0 int) (int, int) {
 	return 0, 0
 }
 
-// previewHandler — GET /api/files/preview?path=<rel> serves a raw file's embedded JPEG,
-// which is what the viewer shows since no browser decodes the raw container.
+// previewHandler — GET /api/files/preview?path=<rel> serves a raw's embedded JPEG; no browser
+// decodes the container itself.
 func (s *server) previewHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -321,8 +317,7 @@ func writePreview(w http.ResponseWriter, etag string, jpg []byte) {
 	w.Write(jpg)
 }
 
-// s3ReaderAt reads an object by ranged GET, so a raw preview costs two small requests
-// rather than downloading the whole file.
+// s3ReaderAt reads by ranged GET, so a raw preview costs two small requests, not a whole download.
 type s3ReaderAt struct {
 	ctx context.Context
 	res *resolved

@@ -176,8 +176,7 @@ func (s *server) searchMounts(ctx context.Context, q string, hidden bool, hits *
 	return false, nil
 }
 
-// searchS3 walks one recursive listing; folders exist only as key segments, so matching one means
-// recovering it from the keys that pass through it.
+// Folders exist only as key segments, so matching one means recovering it from the keys under it.
 func (s *server) searchS3(ctx context.Context, r *resolved, base, q string, hidden bool, hits *[]searchHit) (bool, error) {
 	prefix := r.dirKey()
 	lst, err := r.cli.List(ctx, prefix, "", maxS3Objects)

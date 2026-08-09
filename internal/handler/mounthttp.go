@@ -276,8 +276,8 @@ func s3ThumbHash(res *resolved, obj *s3.Object) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// thumbFromS3 downloads the object to a scratch file, since both decoders need a real path.
-// The display sibling rides along on the same download, so the viewer never re-fetches from B2.
+// thumbFromS3 downloads to a scratch file (both decoders need a real path); the display sibling
+// rides along, so the viewer never re-fetches.
 func (s *server) thumbFromS3(ctx context.Context, res *resolved, hash, cachePath string) error {
 	outs := s.thumbs.scaledOutputsFor(res.rest, hash, false)
 	// Raws never land on disk: two ranged GETs beat downloading tens of megabytes.

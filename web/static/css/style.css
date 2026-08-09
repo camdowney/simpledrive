@@ -728,8 +728,7 @@ html.boot-login #login-view {
   color: var(--text-muted);
 }
 
-/* A menu item that toggles rather than acts: the tick trails the label and holds its own gutter,
-   so turning it on and off doesn't shift the row. */
+/* The tick holds its own gutter, so toggling the item doesn't shift the row. */
 .popover-item-check .popover-item-tick {
   flex-shrink: 0;
   width: 14px;
@@ -776,7 +775,7 @@ html.boot-login #login-view {
   flex-shrink: 0;
 }
 
-/* The tag filter lost its own toolbar button, so the button that now holds tags carries the cue. */
+/* Tags live in this menu, so its button is what carries the live-filter cue. */
 .sort-btn.filtering::after {
   content: "";
   position: absolute;
@@ -1681,8 +1680,7 @@ body.dragging {
   opacity: 0.4;
 }
 
-/* Pinned to the name field's width; margin-left:0 beats .detail-row input so it hugs the toggle.
-   1px smaller than other inputs so the datetime segments + calendar icon fit the pinned width. */
+/* Pinned to the name field's width; 1px smaller so the segments and calendar icon still fit. */
 .detail-row .detail-date-input {
   flex: 1;
   max-width: 65%;
@@ -1746,8 +1744,7 @@ body.dragging {
   margin-top: 10px;
 }
 
-/* Fixed, so the label field starts at the same place whichever mode the row is. Fits the widest
-   system font's "View & edit" (72px on Segoe UI). */
+/* Fixed, so every mode starts its label field at the same place; 76px fits "View & edit". */
 .share-link-mode {
   width: 76px;
   font-size: 12px;
@@ -2203,8 +2200,7 @@ body.dragging {
   }
 }
 
-/* The manager owns the only modal, so deleting confirms in the row. It lies over the row's
-   content rather than replacing it, so the list can't change height while confirming. */
+/* Lies over the row rather than replacing it, so the list can't change height while confirming. */
 .tag-row-confirm {
   position: absolute;
   inset: 0 8px;
@@ -2901,8 +2897,7 @@ body.dragging {
   margin-left: -31px !important;
 }
 
-/* 3px wider than the checkbox each side, so a near miss toggles it instead of editing the text.
-   Toast UI hit-tests the ::before box itself, so that pseudo is the target and ::after draws. */
+/* Toast UI hit-tests the ::before box, so that pseudo is the target and ::after draws. */
 .toastui-editor-contents .task-list-item {
   margin-left: -27px !important;
   padding-left: 27px !important;
@@ -3621,8 +3616,7 @@ ul.tui-colorpicker-clearfix li {
   object-fit: contain;
 }
 
-/* The 320px thumb stands in on the full image's rect, so the swap doesn't move anything. An
-   original small enough to have no larger rect is pinned to its own size in JS. */
+/* The 320px thumb stands in on the full image's rect, so the swap doesn't move anything. */
 .preview-body .preview-placeholder {
   width: 100%;
   height: 100%;
@@ -4165,9 +4159,7 @@ ul.tui-colorpicker-clearfix li {
   margin: 0 -8px;
 }
 
-/* Everything in the picker lines up on one pair of edges. The rows keep the padding their hover
-   box needs and the head is inset to match it, rather than the rows reaching outward — a row
-   wider than the list it scrolls in is clipped at the ends and puts a scrollbar under them. */
+/* Inset to the rows' hover padding: a row wider than its scroll box is clipped at the ends. */
 .picker-head {
   display: flex;
   align-items: center;
@@ -4177,8 +4169,7 @@ ul.tui-colorpicker-clearfix li {
   border-bottom: 1px solid var(--border);
 }
 
-/* Padding pulled back out, so it is the icon that meets the edge and the hover box that overhangs.
-   Without .btn's transparent border the overhang is exactly the rows' padding, and nothing spills. */
+/* Padding pulled back out, so the icon meets the edge and only the hover box overhangs. */
 .picker-head .btn {
   padding: 8px;
   border: 0;

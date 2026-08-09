@@ -49,8 +49,8 @@ func (r *resolved) name() string {
 	return path.Base(r.rest)
 }
 
-// resolve routes rel to a mount when its first segment names one, else to the local root.
-// Every path a request touches passes through here, so it is where a share's subtree is enforced.
+// resolve routes rel to a mount or the local root. Every path passes through here, so it is
+// where a share's subtree is enforced.
 func (s *server) resolve(r *http.Request, rel string) (*resolved, error) {
 	clean := cleanRel(rel)
 	if sh := shareOf(r); sh != nil && !sh.covers(clean) {
@@ -503,8 +503,7 @@ func sortEntriesForListing(entries []entry) {
 	})
 }
 
-// compareFileNames orders names case-insensitively, weighing the extension apart from the stem so
-// that "photo-resized.jpg" follows "photo.jpg" instead of sorting ahead of it on the dot.
+// Extension weighed apart from the stem so "photo-resized.jpg" follows "photo.jpg"; client agrees.
 func compareFileNames(a, b string) int {
 	as, ax := splitFileName(a)
 	bs, bx := splitFileName(b)

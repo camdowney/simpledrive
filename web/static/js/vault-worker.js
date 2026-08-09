@@ -1,5 +1,4 @@
-// age encrypts and decrypts a whole file in one uninterruptible call — around ten seconds for
-// 300 MB — so it runs here rather than freezing the page for the length of every large file.
+// age works a whole file in one uninterruptible call — ~10s for 300 MB — so it runs off the page.
 importScripts("/static/vendor/age.min.js")
 
 const run = async ({ op, recipient, identity, passphrase, bytes }) => {

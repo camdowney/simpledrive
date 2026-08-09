@@ -63,10 +63,9 @@ func (s *server) writeTrashIndex(idx map[string]trashEntry) error {
 	return writeFileAtomic(s.cfg.TrashIndexPath, b)
 }
 
-// trashUniqueName reserves a free name inside the trash dir by creating a placeholder,
-// which the caller's rename then replaces. O_EXCL closes the race with a concurrent delete.
-// A directory gets no placeholder: os.Rename refuses to land on anything that already exists,
-// so its name is only checked, and trashMu is what keeps two deletes off the same one.
+// Reserves a name with an O_EXCL placeholder the caller's rename replaces, closing the race with
+// a concurrent delete. A directory gets none — os.Rename won't land on an existing path — so
+// trashMu is what keeps two deletes off the same name.
 func trashUniqueName(dir, name string, isDir bool) (string, error) {
 	ext := filepath.Ext(name)
 	base := strings.TrimSuffix(name, ext)
@@ -146,8 +145,7 @@ func (s *server) moveToTrash(abs string) error {
 }
 
 // trashRestoreHandler — POST /api/trash/restore  body: {name}
-// The trash is an ordinary hidden folder in the browser, so this exists only for the undo
-// prompt: it is the one path that knows where a deleted file came from.
+// Exists for the undo prompt: it is the one path that knows where a deleted file came from.
 func (s *server) trashRestoreHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)

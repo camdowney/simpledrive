@@ -6,9 +6,8 @@ import (
 	"path/filepath"
 )
 
-// A vault is an ordinary folder holding age-encrypted blobs. The server never sees the
-// passphrase or any plaintext: it stores and serves these files without understanding them.
-// The names are fixed so that RECOVERY.md's instructions apply to every vault ever made.
+// The server never sees a passphrase or any plaintext; it stores these files without reading them.
+// The names are fixed so RECOVERY.md's instructions apply to every vault ever made.
 const (
 	vaultKeyName      = "vault.key.age"      // the vault identity, under the passphrase
 	vaultRecoveryName = "vault.recovery.age" // the same identity, under the recovery code
@@ -22,8 +21,7 @@ func isVaultDir(abs string) bool {
 	return err == nil && fi.Mode().IsRegular()
 }
 
-// saveOverwrite replaces name in dir in one step, so a vault's index is never read half-written.
-// Uploads otherwise never overwrite, which is why this is reachable only inside a vault.
+// saveOverwrite replaces name in one step, so a vault's index is never read half-written.
 func saveOverwrite(dir, name string, src io.Reader) (string, error) {
 	tmp, err := os.CreateTemp(dir, ".upload-*.tmp")
 	if err != nil {
