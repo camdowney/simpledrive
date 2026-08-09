@@ -1226,10 +1226,10 @@ html.boot-login #login-view {
   }
 }
 
-/* A card has no room for the row's accent bar, so its border carries the same mark. */
+/* A card has no room for the row's accent bar, so its border carries the mark instead. */
 .file-card.selected {
   background: var(--selected-bg);
-  border-color: var(--accent);
+  border-color: var(--selected-border);
 }
 
 /* 4:3 slot via the padding hack; children are absolutely positioned within it. */
