@@ -154,14 +154,9 @@ const tagOpenerHtml = (path) => {
   return `${dots ? `<span class="tag-dots">${dots}</span>` : ""}<span>Tags</span>`
 }
 
-const tagEditorHtml = (path, compact) => `
-  <div class="tag-editor${compact ? " tag-editor-compact" : " tag-editor-inline"}"
-    data-path="${esc(path)}">
-    ${
-      compact
-        ? `<button type="button" class="tag-add js-tag-open">${tagOpenerHtml(path)}</button>`
-        : ""
-    }
+const tagEditorHtml = (path) => `
+  <div class="tag-editor" data-path="${esc(path)}">
+    <button type="button" class="tag-add js-tag-open">${tagOpenerHtml(path)}</button>
     <div class="tag-menu">
       <input class="tag-menu-input" placeholder="Find or create a tag" maxlength="${TAG_NAME_MAX}"
         autocomplete="off" spellcheck="false" aria-label="Find or create a tag" />
@@ -174,8 +169,6 @@ const wireTagEditor = (root, onChange) => {
   const input = root.querySelector(".tag-menu-input")
   const list = root.querySelector(".tag-menu-list")
   const addBtn = root.querySelector(".js-tag-open")
-
-  const compact = root.classList.contains("tag-editor-compact")
 
   const renderMenu = () => {
     const query = input.value.trim()
@@ -218,14 +211,12 @@ const wireTagEditor = (root, onChange) => {
     setFileTag(path, id, on)
     // Hand-setting the tag being autotagged settles the open song: no verdict may overrule it.
     if (id === state.audioTagging && state.audioTrack?.path === path) state.audioTrack.manual = true
-    if (compact) addBtn.innerHTML = tagOpenerHtml(path)
+    addBtn.innerHTML = tagOpenerHtml(path)
     renderMenu()
     onChange?.()
   }
 
-  // The inline form is always open, so it fills its list once and never toggles.
-  if (compact) addBtn.setAttribute("aria-expanded", "false")
-  else renderMenu()
+  addBtn.setAttribute("aria-expanded", "false")
 
   root.addEventListener("click", (e) => {
     if (e.target.closest(".js-tag-open")) {
@@ -268,25 +259,23 @@ const wireTagEditor = (root, onChange) => {
     commit(tag.id, true)
   })
 
-  // Self-removing: the modal and the viewer both drop the editor by clearing their innerHTML.
+  // Self-removing: the viewer drops the editor by clearing its innerHTML.
   const onDocClick = (e) => {
     if (!root.isConnected) document.removeEventListener("click", onDocClick, true)
     else if (!root.contains(e.target)) setOpen(false)
   }
-  if (compact) document.addEventListener("click", onDocClick, true)
+  document.addEventListener("click", onDocClick, true)
 }
 
-const tagRowHtml = (tag) => {
-  const on = state.tagFilter.has(tag.id)
-  return `
+const tagRowHtml = (tag, on, plain) => `
   <div class="tag-row" data-id="${esc(tag.id)}">
     <button type="button" class="tag-row-color js-tag-color" style="--tag-color: ${esc(tag.color)}"
       title="Change color" aria-label="Change the color of ${esc(tag.name)}"></button>
-    <button type="button" class="tag-row-main js-tag-filter${on ? " active" : ""}"
+    <button type="button" class="tag-row-main js-tag-toggle${on ? " active" : ""}"
       role="menuitemcheckbox" aria-checked="${on}">
       <span class="tag-row-name">${esc(tag.name)}</span>
       <svg class="tag-row-check" aria-hidden="true"><use href="#icon-check" /></svg>
-      <span class="tag-row-count">${tagUseCount(tag.id)}</span>
+      ${plain ? "" : `<span class="tag-row-count">${tagUseCount(tag.id)}</span>`}
     </button>
     <button type="button" class="tag-row-btn js-tag-rename" title="Rename tag"
       aria-label="Rename tag ${esc(tag.name)}">
@@ -309,23 +298,28 @@ const tagRowHtml = (tag) => {
       <button type="button" class="btn btn-primary js-tag-rename-ok">Save</button>
     </div>
   </div>`
-}
 
-const showTagManager = () => {
+// Rows toggle whatever the caller hands over: the filter set, or one file's tags.
+const showTagList = ({ subject, headLabel, plain, isOn, toggle, canClear, clear }) => {
   const cleanup = showExtraModal({
     title: "Tags",
     extraHtml: `
-    <div class="tag-manager">
+    <div class="tag-manager${plain ? " tag-manager-plain" : ""}">
+      ${subject ? `<p class="dialog-subject">${esc(subject)}</p>` : ""}
       <div class="tag-manager-new">
         <input id="tag-new-name" class="tag-manager-input" placeholder="New tag name"
           maxlength="${TAG_NAME_MAX}" autocomplete="off" spellcheck="false"
           aria-label="New tag name" />
         <button type="button" class="btn btn-secondary" id="tag-new-add">Add</button>
       </div>
-      <div class="tag-manager-head" id="tag-manager-head">
-        <span>Show only items with these tags</span>
+      ${
+        headLabel
+          ? `<div class="tag-manager-head" id="tag-manager-head">
+        <span>${esc(headLabel)}</span>
         <button type="button" class="tag-manager-clear" id="tag-clear">Clear</button>
-      </div>
+      </div>`
+          : ""
+      }
       <div class="tag-manager-list" id="tag-manager-list"></div>
     </div>`,
     okLabel: "Done",
@@ -336,6 +330,8 @@ const showTagManager = () => {
 
   const list = document.getElementById("tag-manager-list")
   const nameInp = document.getElementById("tag-new-name")
+  const head = document.getElementById("tag-manager-head")
+  const clearBtn = document.getElementById("tag-clear")
 
   const applyFilter = () => {
     applyEntryFilters()
@@ -346,10 +342,12 @@ const showTagManager = () => {
 
   const render = () => {
     list.innerHTML = state.tags.length
-      ? state.tags.map(tagRowHtml).join("")
+      ? state.tags.map((t) => tagRowHtml(t, isOn(t.id), plain)).join("")
       : `<p class="tag-manager-empty">No tags created yet.</p>`
-    document.getElementById("tag-manager-head").classList.toggle("hidden", !state.tags.length)
-    document.getElementById("tag-clear").classList.toggle("hidden", !state.tagFilter.size)
+    if (head) {
+      head.classList.toggle("hidden", !state.tags.length)
+      clearBtn.classList.toggle("hidden", !canClear())
+    }
   }
   render()
 
@@ -361,11 +359,12 @@ const showTagManager = () => {
   }
 
   document.getElementById("tag-new-add").onclick = addTag
-  document.getElementById("tag-clear").onclick = () => {
-    state.tagFilter.clear()
-    render()
-    applyFilter()
-  }
+  if (clearBtn)
+    clearBtn.onclick = () => {
+      clear()
+      render()
+      applyFilter()
+    }
 
   // A rename that collides with another tag stays open on the offending name for a second try.
   const commitRename = (row, id) => {
@@ -403,9 +402,8 @@ const showTagManager = () => {
       renderFiles()
       return
     }
-    if (e.target.closest(".js-tag-filter")) {
-      if (state.tagFilter.has(id)) state.tagFilter.delete(id)
-      else state.tagFilter.add(id)
+    if (e.target.closest(".js-tag-toggle")) {
+      toggle(id, !isOn(id))
       render()
       applyFilter()
       return
@@ -445,3 +443,25 @@ const showTagManager = () => {
     }
   }
 }
+
+const showTagManager = () =>
+  showTagList({
+    headLabel: "Show only items with these tags",
+    isOn: (id) => state.tagFilter.has(id),
+    toggle: (id, on) => (on ? state.tagFilter.add(id) : state.tagFilter.delete(id)),
+    canClear: () => state.tagFilter.size > 0,
+    clear: () => state.tagFilter.clear(),
+  })
+
+const showTagsFor = (path, name) =>
+  showTagList({
+    subject: name,
+    plain: true,
+    isOn: (id) => (state.fileTags[path] || []).includes(id),
+    toggle: (id, on) => {
+      setFileTag(path, id, on)
+      // Hand-setting the tag being autotagged settles the open song: no verdict may overrule it.
+      if (id === state.audioTagging && state.audioTrack?.path === path)
+        state.audioTrack.manual = true
+    },
+  })

@@ -391,23 +391,7 @@ const wireShareSection = (rel) => {
   }
 }
 
-const showTagsDialog = (entry) => {
-  const rel = entryPath(entry)
-  const cleanup = showExtraModal({
-    title: "Tags",
-    extraHtml: `
-    <div class="tag-dialog">
-      <p class="dialog-subject">${esc(entry.name)}</p>
-      ${tagEditorHtml(rel)}
-    </div>`,
-    okLabel: "Done",
-    closeOnly: true,
-    okClass: "btn btn-subtle",
-    onOk: () => cleanup(),
-  })
-  // Tags save as they are set, not on the dialog's button.
-  wireTagEditor(document.querySelector(".tag-dialog .tag-editor"), renderFiles)
-}
+const showTagsDialog = (entry) => showTagsFor(entryPath(entry), entry.name)
 
 // Links are the owner's to hand out, so this is never reachable through one.
 const showShareDialog = async (entry) => {

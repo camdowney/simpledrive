@@ -287,7 +287,7 @@ const renderPreviewBar = (path, type) => {
   bar.classList.toggle("has-audio", audio)
   bar.innerHTML = audio ? audioBarHtml() : ""
   const slot = document.getElementById("preview-tagslot")
-  slot.innerHTML = state.share || state.inVault ? "" : tagEditorHtml(path, true)
+  slot.innerHTML = state.share || state.inVault ? "" : tagEditorHtml(path)
   const editor = slot.querySelector(".tag-editor")
   // Retagging the open song can move it in or out of a filtered queue, moving the queue's ends.
   if (editor)

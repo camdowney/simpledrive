@@ -1854,13 +1854,10 @@ body.dragging {
   background: var(--tag-color);
 }
 
-.tag-editor {
-  min-width: 0;
-}
-
 /* Wraps the opener alone, so the menu floated off it lands on the button's own box. */
-.tag-editor-compact {
+.tag-editor {
   position: relative;
+  min-width: 0;
 }
 
 .tag-add {
@@ -1889,7 +1886,7 @@ body.dragging {
   }
 }
 
-/* The compact editor's stand-in for chips: overlapped, so the button costs no width it can save. */
+/* The opener's stand-in for chips: overlapped, so the button costs no width it can save. */
 .tag-dots {
   display: inline-flex;
   align-items: center;
@@ -1919,17 +1916,6 @@ body.dragging {
   display: block;
 }
 
-/* A dialog has the room to hold the same menu inline, with no opener to float it off. */
-.tag-editor-inline .tag-menu {
-  display: block;
-  position: static;
-  width: auto;
-  padding: 0;
-  border: none;
-  background: none;
-  box-shadow: none;
-}
-
 .tag-menu-input {
   display: block;
   box-sizing: border-box;
@@ -1944,9 +1930,8 @@ body.dragging {
   font-size: 13px;
 }
 
-/* Only the popover's field stays compact in a dialog; the inline one is a dialog field, so .modal
-   input sizes it. */
-.modal .tag-editor-compact .tag-menu-input {
+/* Beats .modal input, whose dialog-sized text would outgrow the popover. */
+.modal .tag-menu-input {
   padding: 6px 8px;
   font-size: 13px;
 }
@@ -1961,12 +1946,6 @@ body.dragging {
   max-height: 190px;
   margin: -6px -8px;
   overflow-y: auto;
-}
-
-/* Same absorption inline, so the dialog's own padding and gaps measure to the rows' text. */
-.tag-editor-inline .tag-menu-list {
-  max-height: 260px;
-  margin: -8px -10px;
 }
 
 .tag-menu-item {
@@ -1991,12 +1970,6 @@ body.dragging {
   }
 }
 
-/* A dialog isn't rationing space the way the popover is, so the rows read at its own text size. */
-.tag-editor-inline .tag-menu-item {
-  padding: 8px 10px;
-  font-size: 14px;
-}
-
 .tag-menu-name {
   flex: 1;
   overflow: hidden;
@@ -2019,12 +1992,6 @@ body.dragging {
   visibility: hidden;
 }
 
-/* The dialog's rows read at its own size, so the tick grows with them. */
-.tag-editor-inline .tag-menu-check {
-  width: 17px;
-  height: 17px;
-}
-
 .tag-menu-item.active .tag-menu-check {
   visibility: visible;
 }
@@ -2034,11 +2001,6 @@ body.dragging {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.3em;
-}
-
-/* Follows the inline rows' padding, so both start at the same edge. */
-.tag-editor-inline .tag-menu-empty {
-  padding: 8px 10px;
 }
 
 /* Sits outside the list, so the menu's padding already insets it; only the gap below is its own. */
@@ -2064,7 +2026,7 @@ body.dragging {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 18px 0 4px 0;
+  margin: 14px 0 4px 0;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
   color: var(--text-muted);
@@ -2087,6 +2049,11 @@ body.dragging {
   margin: 0 -8px;
   padding: 0 8px;
   overflow-y: auto;
+}
+
+/* No head above it here, so the list keeps its own distance from the new-tag row. */
+.tag-manager-plain .tag-manager-list {
+  margin-top: 6px;
 }
 
 .tag-manager-empty {
@@ -2141,6 +2108,12 @@ body.dragging {
 .tag-row-main.active {
   color: var(--accent);
   font-weight: 500;
+}
+
+/* Assigning rows tick alone: the accent reads as a filter being applied. */
+.tag-manager-plain .tag-row-main.active {
+  color: var(--text);
+  font-weight: 400;
 }
 
 .tag-row-name {
