@@ -232,13 +232,8 @@ func rawDimensions(tiff []byte, order binary.ByteOrder, ifd0 int) (int, int) {
 // previewHandler — GET /api/files/preview?path=<rel> serves a raw's embedded JPEG; no browser
 // decodes the container itself.
 func (s *server) previewHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	res, err := s.resolve(r, r.URL.Query().Get("path"))
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolveQuery(w, r)
+	if !ok {
 		return
 	}
 	if res.isS3() {

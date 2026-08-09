@@ -193,19 +193,11 @@ func (q *jobQueue) setProgress(id string, p float64) {
 
 // jobsHandler — GET /api/jobs  returns the queue, running and recently finished.
 func (s *server) jobsHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	writeJSON(w, http.StatusOK, map[string]any{"jobs": s.jobs.list()})
 }
 
 // jobCancelHandler — POST /api/jobs/cancel  body: {id}
 func (s *server) jobCancelHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var body struct{ ID string }
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		jsonErr(w, "bad request", http.StatusBadRequest)
@@ -224,10 +216,6 @@ var videoPresets = map[string]int{"720p": 720, "1080p": 1080, "1440p": 1440}
 // resizeVideoHandler — POST /api/media/resize-video
 // body: {path, preset, crf, replace}
 func (s *server) resizeVideoHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var body struct {
 		Path    string `json:"path"`
 		Preset  string `json:"preset"`

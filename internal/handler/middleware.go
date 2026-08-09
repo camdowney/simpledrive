@@ -28,6 +28,25 @@ func (s *server) ownerSession(r *http.Request) bool {
 	return err == nil && s.sessions.Valid(c.Value)
 }
 
+// The method a route answers is a property of the route, so it is gated at registration.
+func requireMethod(method string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != method {
+			jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		next(w, r)
+	}
+}
+
+func get(next http.HandlerFunc) http.HandlerFunc {
+	return requireMethod(http.MethodGet, next)
+}
+
+func post(next http.HandlerFunc) http.HandlerFunc {
+	return requireMethod(http.MethodPost, next)
+}
+
 func (s *server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !s.ownerSession(r) {

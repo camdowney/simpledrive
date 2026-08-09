@@ -29,19 +29,14 @@ type searchHit struct {
 
 // searchHandler — GET /api/files/search?path=<rel>&q=<text>&hidden=1  matches names in a subtree.
 func (s *server) searchHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
 	if q == "" {
 		jsonErr(w, "no query", http.StatusBadRequest)
 		return
 	}
 	rel := r.URL.Query().Get("path")
-	res, err := s.resolve(r, rel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolvePath(w, r, rel)
+	if !ok {
 		return
 	}
 	hidden := r.URL.Query().Get("hidden") == "1"
@@ -52,6 +47,7 @@ func (s *server) searchHandler(w http.ResponseWriter, r *http.Request) {
 	base := "/" + cleanRel(rel)
 	hits := []searchHit{}
 	var truncated bool
+	var err error
 	if res.isS3() {
 		truncated, err = s.searchS3(ctx, res, base, q, hidden, &hits)
 	} else {

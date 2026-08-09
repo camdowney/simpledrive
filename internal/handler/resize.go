@@ -36,10 +36,6 @@ const (
 // resizeImageHandler — POST /api/media/resize-image
 // body: {path, maxDim, quality, replace}
 func (s *server) resizeImageHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var body struct {
 		Path    string `json:"path"`
 		MaxDim  int    `json:"maxDim"`

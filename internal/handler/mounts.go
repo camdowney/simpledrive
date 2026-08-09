@@ -41,19 +41,9 @@ func (m mount) public() mountPublic {
 }
 
 // readMounts returns the stored mounts; a missing file is an empty list, not an error.
+// Callers must hold mountsMu.
 func (s *server) readMounts() ([]mount, error) {
-	data, err := os.ReadFile(s.cfg.MountsPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var mounts []mount
-	if err := json.Unmarshal(data, &mounts); err != nil {
-		return nil, err
-	}
-	return mounts, nil
+	return s.mountsCache.load(s.cfg.MountsPath)
 }
 
 func (s *server) writeMounts(mounts []mount) error {
@@ -61,6 +51,7 @@ func (s *server) writeMounts(mounts []mount) error {
 	if err != nil {
 		return err
 	}
+	s.mountsCache.forget()
 	// writeFileAtomic goes through os.CreateTemp, which always creates 0600 — keep it that way.
 	return writeFileAtomic(s.cfg.MountsPath, data)
 }

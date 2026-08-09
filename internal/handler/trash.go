@@ -147,10 +147,6 @@ func (s *server) moveToTrash(abs string) error {
 // trashRestoreHandler — POST /api/trash/restore  body: {name}
 // Exists for the undo prompt: it is the one path that knows where a deleted file came from.
 func (s *server) trashRestoreHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var body struct{ Name string }
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		jsonErr(w, "bad request", http.StatusBadRequest)

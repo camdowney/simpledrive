@@ -181,14 +181,9 @@ func (c *thumbCache) knownImageSize(abs string, fi os.FileInfo) (int, int, bool)
 
 // thumbHandler — GET /api/files/thumb?path=<rel> serves a cached JPEG preview.
 func (s *server) thumbHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	rel := r.URL.Query().Get("path")
-	res, err := s.resolve(r, rel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolvePath(w, r, rel)
+	if !ok {
 		return
 	}
 	if res.isS3() {
@@ -252,13 +247,8 @@ func (s *server) thumbHandler(w http.ResponseWriter, r *http.Request) {
 
 // displayHandler — GET /api/files/display?path=<rel> serves a screen-sized JPEG for the viewer.
 func (s *server) displayHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	res, err := s.resolve(r, r.URL.Query().Get("path"))
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolveQuery(w, r)
+	if !ok {
 		return
 	}
 	if res.isS3() {

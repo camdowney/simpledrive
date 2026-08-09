@@ -27,6 +27,10 @@ type server struct {
 	sharesMu sync.Mutex
 	trashMu  sync.Mutex
 
+	// Guarded by mountsMu and sharesMu: both files are read on the path of every request.
+	mountsCache jsonCache[mount]
+	sharesCache jsonCache[share]
+
 	// One lock per in-progress upload part, so chunks of one file queue without blocking others.
 	partsMu sync.Mutex
 	parts   map[string]*sync.Mutex
@@ -56,42 +60,42 @@ func New(cfg *config.Config, webFS embed.FS) http.Handler {
 	s.mux.Handle("/static/", http.FileServer(http.FS(staticFS)))
 	s.mux.HandleFunc("/", s.indexHandler)
 
-	s.mux.HandleFunc("/api/auth/login", s.loginHandler)
-	s.mux.HandleFunc("/api/auth/logout", s.requireAuth(s.logoutHandler))
+	s.mux.HandleFunc("/api/auth/login", post(s.loginHandler))
+	s.mux.HandleFunc("/api/auth/logout", s.requireAuth(post(s.logoutHandler)))
 	s.mux.HandleFunc("/api/auth/status", s.requireAuth(s.statusHandler))
 
 	// The level each route is registered at is what a share link is judged against, not a UI hint.
-	s.mux.HandleFunc("/api/files", s.requireAccess(s.filesHandler, accessRead))
-	s.mux.HandleFunc("/api/files/search", s.requireAccess(s.searchHandler, accessRead))
-	s.mux.HandleFunc("/api/files/download", s.requireAccess(s.downloadHandler, accessRead))
-	s.mux.HandleFunc("/api/files/upload", s.requireAccess(s.uploadHandler, accessUpload))
-	s.mux.HandleFunc("/api/files/upload/chunk", s.requireAccess(s.uploadChunkHandler, accessUpload))
-	s.mux.HandleFunc("/api/files/upload/status", s.requireAccess(s.uploadStatusHandler, accessUpload))
-	s.mux.HandleFunc("/api/files/read", s.requireAccess(s.readHandler, accessRead))
-	s.mux.HandleFunc("/api/files/write", s.requireAccess(s.writeHandler, accessWrite))
-	s.mux.HandleFunc("/api/files/mkdir", s.requireAccess(s.mkdirHandler, accessWrite))
-	s.mux.HandleFunc("/api/files/rename", s.requireAccess(s.renameHandler, accessWrite))
-	s.mux.HandleFunc("/api/files/move", s.requireAccess(s.moveHandler, accessWrite))
-	s.mux.HandleFunc("/api/files/copy", s.requireAccess(s.copyHandler, accessWrite))
-	s.mux.HandleFunc("/api/files/delete", s.requireAccess(s.deleteHandler, accessWrite))
-	s.mux.HandleFunc("/api/files/zip", s.requireAccess(s.zipHandler, accessRead))
-	s.mux.HandleFunc("/api/files/thumb", s.requireAccess(s.thumbHandler, accessRead))
-	s.mux.HandleFunc("/api/files/preview", s.requireAccess(s.previewHandler, accessRead))
-	s.mux.HandleFunc("/api/files/display", s.requireAccess(s.displayHandler, accessRead))
-	s.mux.HandleFunc("/api/files/meta", s.requireAccess(s.metaHandler, accessRead))
-	s.mux.HandleFunc("/api/files/size", s.requireAccess(s.dirSizeHandler, accessRead))
-	s.mux.HandleFunc("/api/files/fixdates", s.requireAccess(s.fixDatesHandler, accessWrite))
-	s.mux.HandleFunc("/api/files/loudness", s.requireAccess(s.loudnessHandler, accessRead))
+	s.mux.HandleFunc("/api/files", s.requireAccess(get(s.filesHandler), accessRead))
+	s.mux.HandleFunc("/api/files/search", s.requireAccess(get(s.searchHandler), accessRead))
+	s.mux.HandleFunc("/api/files/download", s.requireAccess(get(s.downloadHandler), accessRead))
+	s.mux.HandleFunc("/api/files/upload", s.requireAccess(post(s.uploadHandler), accessUpload))
+	s.mux.HandleFunc("/api/files/upload/chunk", s.requireAccess(post(s.uploadChunkHandler), accessUpload))
+	s.mux.HandleFunc("/api/files/upload/status", s.requireAccess(get(s.uploadStatusHandler), accessUpload))
+	s.mux.HandleFunc("/api/files/read", s.requireAccess(get(s.readHandler), accessRead))
+	s.mux.HandleFunc("/api/files/write", s.requireAccess(post(s.writeHandler), accessWrite))
+	s.mux.HandleFunc("/api/files/mkdir", s.requireAccess(post(s.mkdirHandler), accessWrite))
+	s.mux.HandleFunc("/api/files/rename", s.requireAccess(post(s.renameHandler), accessWrite))
+	s.mux.HandleFunc("/api/files/move", s.requireAccess(post(s.moveHandler), accessWrite))
+	s.mux.HandleFunc("/api/files/copy", s.requireAccess(post(s.copyHandler), accessWrite))
+	s.mux.HandleFunc("/api/files/delete", s.requireAccess(post(s.deleteHandler), accessWrite))
+	s.mux.HandleFunc("/api/files/zip", s.requireAccess(post(s.zipHandler), accessRead))
+	s.mux.HandleFunc("/api/files/thumb", s.requireAccess(get(s.thumbHandler), accessRead))
+	s.mux.HandleFunc("/api/files/preview", s.requireAccess(get(s.previewHandler), accessRead))
+	s.mux.HandleFunc("/api/files/display", s.requireAccess(get(s.displayHandler), accessRead))
+	s.mux.HandleFunc("/api/files/meta", s.requireAccess(get(s.metaHandler), accessRead))
+	s.mux.HandleFunc("/api/files/size", s.requireAccess(get(s.dirSizeHandler), accessRead))
+	s.mux.HandleFunc("/api/files/fixdates", s.requireAccess(post(s.fixDatesHandler), accessWrite))
+	s.mux.HandleFunc("/api/files/loudness", s.requireAccess(get(s.loudnessHandler), accessRead))
 
-	s.mux.HandleFunc("/api/media/trim-audio", s.requireAccess(s.trimAudioHandler, accessWrite))
-	s.mux.HandleFunc("/api/media/resize-image", s.requireAccess(s.resizeImageHandler, accessWrite))
-	s.mux.HandleFunc("/api/media/resize-video", s.requireAccess(s.resizeVideoHandler, accessWrite))
+	s.mux.HandleFunc("/api/media/trim-audio", s.requireAccess(post(s.trimAudioHandler), accessWrite))
+	s.mux.HandleFunc("/api/media/resize-image", s.requireAccess(post(s.resizeImageHandler), accessWrite))
+	s.mux.HandleFunc("/api/media/resize-video", s.requireAccess(post(s.resizeVideoHandler), accessWrite))
 	// Owner-only: the queue names paths across the whole drive, not just a share's subtree.
-	s.mux.HandleFunc("/api/jobs", s.requireAuth(s.jobsHandler))
-	s.mux.HandleFunc("/api/jobs/cancel", s.requireAuth(s.jobCancelHandler))
+	s.mux.HandleFunc("/api/jobs", s.requireAuth(get(s.jobsHandler)))
+	s.mux.HandleFunc("/api/jobs/cancel", s.requireAuth(post(s.jobCancelHandler)))
 
 	// Owner-only: a share link's holder must not put back what the owner deleted.
-	s.mux.HandleFunc("/api/trash/restore", s.requireAuth(s.trashRestoreHandler))
+	s.mux.HandleFunc("/api/trash/restore", s.requireAuth(post(s.trashRestoreHandler)))
 
 	s.mux.HandleFunc("/api/prefs", s.requireAuth(s.prefsHandler))
 	// Owner-only: a share link carries no tags, so its holder never reads or writes this.
@@ -99,8 +103,8 @@ func New(cfg *config.Config, webFS embed.FS) http.Handler {
 	s.mux.HandleFunc("/api/mounts", s.requireAuth(s.mountsHandler))
 	s.mux.HandleFunc("/api/shares", s.requireAuth(s.sharesHandler))
 	// Owner-only: how full the drive is, and what is filling it, is nothing a link speaks for.
-	s.mux.HandleFunc("/api/usage", s.requireAuth(s.usageHandler))
-	s.mux.HandleFunc("/api/usage/breakdown", s.requireAuth(s.breakdownHandler))
+	s.mux.HandleFunc("/api/usage", s.requireAuth(get(s.usageHandler)))
+	s.mux.HandleFunc("/api/usage/breakdown", s.requireAuth(get(s.breakdownHandler)))
 	s.mux.HandleFunc("/api/share/info", s.requireAccess(s.shareInfoHandler, accessInfo))
 	s.mux.HandleFunc("/s/", s.shareEntryHandler)
 

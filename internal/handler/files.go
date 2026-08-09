@@ -103,14 +103,8 @@ func jsonErr(w http.ResponseWriter, msg string, code int) {
 
 // filesHandler — GET /api/files?path=<rel>  lists a directory.
 func (s *server) filesHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	rel := r.URL.Query().Get("path")
-	res, err := s.resolve(r, rel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolveQuery(w, r)
+	if !ok {
 		return
 	}
 	if res.isS3() {
@@ -225,14 +219,8 @@ func relOf(abs, root string) string {
 
 // downloadHandler — GET /api/files/download?path=<rel>  streams a file.
 func (s *server) downloadHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	rel := r.URL.Query().Get("path")
-	res, err := s.resolve(r, rel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolveQuery(w, r)
+	if !ok {
 		return
 	}
 	if res.isS3() {
@@ -289,15 +277,10 @@ func createUnique(dir, name string) (*os.File, error) {
 
 // uploadHandler — POST /api/files/upload?path=<rel>  receives multipart uploads.
 func (s *server) uploadHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	rel := r.URL.Query().Get("path")
-	res, err := s.resolve(r, rel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolvePath(w, r, rel)
+	if !ok {
 		return
 	}
 	destDir := res.abs
@@ -408,14 +391,9 @@ func (s *server) uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 // readHandler — GET /api/files/read?path=<rel>  returns file text content.
 func (s *server) readHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	rel := r.URL.Query().Get("path")
-	res, err := s.resolve(r, rel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolvePath(w, r, rel)
+	if !ok {
 		return
 	}
 	if res.isS3() {
@@ -452,14 +430,8 @@ func (s *server) readHandler(w http.ResponseWriter, r *http.Request) {
 
 // writeHandler — POST /api/files/write?path=<rel>  saves text content.
 func (s *server) writeHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	rel := r.URL.Query().Get("path")
-	res, err := s.resolve(r, rel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolveQuery(w, r)
+	if !ok {
 		return
 	}
 
@@ -486,10 +458,6 @@ func (s *server) writeHandler(w http.ResponseWriter, r *http.Request) {
 
 // mkdirHandler — POST /api/files/mkdir  body: {path}
 func (s *server) mkdirHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var body struct {
 		Path string `json:"path"`
 		// Unique suffixes the name until one is free, the way an uploaded file's name is.
@@ -499,9 +467,8 @@ func (s *server) mkdirHandler(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	res, err := s.resolve(r, body.Path)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolvePath(w, r, body.Path)
+	if !ok {
 		return
 	}
 	if res.isS3() {
@@ -554,10 +521,6 @@ func mkdirUnique(abs string) (string, error) {
 
 // renameHandler — POST /api/files/rename body {dir, from, to, modified?}; modified is RFC3339.
 func (s *server) renameHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var body struct {
 		Dir      string `json:"dir"`
 		From     string `json:"from"`
@@ -573,14 +536,12 @@ func (s *server) renameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fromRel, toRel := path.Join(body.Dir, body.From), path.Join(body.Dir, body.To)
-	fromRes, err := s.resolve(r, fromRel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	fromRes, ok := s.resolvePath(w, r, fromRel)
+	if !ok {
 		return
 	}
-	toRes, err := s.resolve(r, toRel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	toRes, ok := s.resolvePath(w, r, toRel)
+	if !ok {
 		return
 	}
 	if fromRes.isS3() {
@@ -658,10 +619,6 @@ func (s *server) renameHandler(w http.ResponseWriter, r *http.Request) {
 
 // moveHandler — POST /api/files/move body {from, to}; both are full relative paths.
 func (s *server) moveHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var body struct {
 		From string `json:"from"`
 		To   string `json:"to"`
@@ -670,14 +627,12 @@ func (s *server) moveHandler(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	fromRes, err := s.resolve(r, body.From)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	fromRes, ok := s.resolvePath(w, r, body.From)
+	if !ok {
 		return
 	}
-	toRes, err := s.resolve(r, body.To)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	toRes, ok := s.resolvePath(w, r, body.To)
+	if !ok {
 		return
 	}
 	if fromRes.isMountRoot() || toRes.isMountRoot() {
@@ -721,10 +676,6 @@ func (s *server) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 // copyHandler — POST /api/files/copy body {from, to}; both are full relative paths.
 func (s *server) copyHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var body struct {
 		From string `json:"from"`
 		To   string `json:"to"`
@@ -733,14 +684,12 @@ func (s *server) copyHandler(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	fromRes, err := s.resolve(r, body.From)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	fromRes, ok := s.resolvePath(w, r, body.From)
+	if !ok {
 		return
 	}
-	toRes, err := s.resolve(r, body.To)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	toRes, ok := s.resolvePath(w, r, body.To)
+	if !ok {
 		return
 	}
 	// A bucket's own folder is the connection, not a directory that can be duplicated.
@@ -836,21 +785,17 @@ func copyFile(from, to string, perm os.FileMode) error {
 
 // deleteHandler — POST /api/files/delete  body: {path}
 func (s *server) deleteHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var body struct{ Path string }
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		jsonErr(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	res, err := s.resolve(r, body.Path)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolvePath(w, r, body.Path)
+	if !ok {
 		return
 	}
 	if res.isS3() {
+		var err error
 		// Deleting a bucket's own folder disconnects it; it never erases the bucket.
 		if res.isMountRoot() {
 			if shareOf(r) != nil {

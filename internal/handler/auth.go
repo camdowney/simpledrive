@@ -10,10 +10,6 @@ import (
 )
 
 func (s *server) loginHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	if !s.limiter.Allow(r) {
 		http.Error(w, "too many attempts, try again later", http.StatusTooManyRequests)
@@ -68,10 +64,6 @@ func (s *server) loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) logoutHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	s.sessions.Delete(s.sessionToken(r))
 	http.SetCookie(w, &http.Cookie{
 		Name:    cookieName,

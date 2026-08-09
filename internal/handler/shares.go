@@ -93,19 +93,10 @@ func cleanRel(rel string) string {
 	return strings.TrimPrefix(path.Clean("/"+rel), "/")
 }
 
+// readShares returns the stored links; a missing file is an empty list, not an error.
+// Callers must hold sharesMu.
 func (s *server) readShares() ([]share, error) {
-	data, err := os.ReadFile(s.cfg.SharesPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var shares []share
-	if err := json.Unmarshal(data, &shares); err != nil {
-		return nil, err
-	}
-	return shares, nil
+	return s.sharesCache.load(s.cfg.SharesPath)
 }
 
 func (s *server) writeShares(shares []share) error {
@@ -113,6 +104,7 @@ func (s *server) writeShares(shares []share) error {
 	if err != nil {
 		return err
 	}
+	s.sharesCache.forget()
 	// writeFileAtomic goes through os.CreateTemp, which always creates 0600 — keep it that way.
 	return writeFileAtomic(s.cfg.SharesPath, data)
 }
@@ -235,9 +227,8 @@ func (s *server) sharesHandler(w http.ResponseWriter, r *http.Request) {
 			jsonErr(w, "share a folder or file, not the whole drive", http.StatusBadRequest)
 			return
 		}
-		res, err := s.resolve(r, clean)
-		if err != nil {
-			jsonErr(w, err.Error(), http.StatusBadRequest)
+		res, ok := s.resolvePath(w, r, clean)
+		if !ok {
 			return
 		}
 		st, err := s.statAny(r.Context(), res)
@@ -356,9 +347,8 @@ func (s *server) shareInfoHandler(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, "not a share", http.StatusNotFound)
 		return
 	}
-	res, err := s.resolve(r, sh.Path)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolvePath(w, r, sh.Path)
+	if !ok {
 		return
 	}
 	st, err := s.statAny(r.Context(), res)

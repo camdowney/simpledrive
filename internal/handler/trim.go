@@ -23,10 +23,6 @@ const minTrimSeconds = 0.1
 // trimAudioHandler — POST /api/media/trim-audio
 // body: {path, start, end, replace}; start and end are seconds from the beginning.
 func (s *server) trimAudioHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	var body struct {
 		Path    string  `json:"path"`
 		Start   float64 `json:"start"`

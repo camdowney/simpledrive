@@ -49,6 +49,21 @@ func (r *resolved) name() string {
 	return path.Base(r.rest)
 }
 
+// resolvePath is resolve for a handler that answers the caller directly: it writes the 400 itself.
+func (s *server) resolvePath(w http.ResponseWriter, r *http.Request, rel string) (*resolved, bool) {
+	res, err := s.resolve(r, rel)
+	if err != nil {
+		jsonErr(w, err.Error(), http.StatusBadRequest)
+		return nil, false
+	}
+	return res, true
+}
+
+// resolveQuery is resolvePath on the ?path= parameter every route that names a file takes.
+func (s *server) resolveQuery(w http.ResponseWriter, r *http.Request) (*resolved, bool) {
+	return s.resolvePath(w, r, r.URL.Query().Get("path"))
+}
+
 // resolve routes rel to a mount or the local root. Every path passes through here, so it is
 // where a share's subtree is enforced.
 func (s *server) resolve(r *http.Request, rel string) (*resolved, error) {

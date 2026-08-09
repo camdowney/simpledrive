@@ -14,10 +14,6 @@ const sizeTimeout = 20 * time.Second
 
 // usageHandler — GET /api/usage  reports how full the disk holding the drive is.
 func (s *server) usageHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	total, free, ok := diskUsage(s.cfg.RootDir)
 	if !ok {
 		// Every other platform still gets the dialog, just without the meter at the top of it.
@@ -34,13 +30,8 @@ func (s *server) usageHandler(w http.ResponseWriter, r *http.Request) {
 
 // dirSizeHandler — GET /api/files/size?path=<rel>  measures a folder, on either backend.
 func (s *server) dirSizeHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	res, err := s.resolve(r, r.URL.Query().Get("path"))
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolveQuery(w, r)
+	if !ok {
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), sizeTimeout)
@@ -139,13 +130,8 @@ type categoryUse struct {
 
 // breakdownHandler — GET /api/usage/breakdown?path=<rel>  splits the drive by kind of file.
 func (s *server) breakdownHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	res, err := s.resolve(r, r.URL.Query().Get("path"))
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolveQuery(w, r)
+	if !ok {
 		return
 	}
 	if res.isS3() {

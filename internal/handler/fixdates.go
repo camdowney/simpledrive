@@ -9,14 +9,8 @@ import (
 
 // fixDatesHandler — POST /api/files/fixdates?path=<rel> re-stamps media mtimes from capture time.
 func (s *server) fixDatesHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	rel := r.URL.Query().Get("path")
-	res, err := s.resolve(r, rel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolveQuery(w, r)
+	if !ok {
 		return
 	}
 	if res.isS3() {

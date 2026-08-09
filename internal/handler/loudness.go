@@ -27,14 +27,8 @@ const (
 
 // loudnessHandler — GET /api/files/loudness?path=<rel> returns a track's gain, cached by content.
 func (s *server) loudnessHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	rel := r.URL.Query().Get("path")
-	res, err := s.resolve(r, rel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolveQuery(w, r)
+	if !ok {
 		return
 	}
 	// Scanning an S3 object means pulling the whole thing down per track; not worth the egress.

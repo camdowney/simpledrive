@@ -91,10 +91,6 @@ func (s *server) resumeTarget(r *http.Request) (destDir, part string, err error,
 
 // uploadStatusHandler — GET /api/files/upload/status?path=&id=  says where to resume from.
 func (s *server) uploadStatusHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	_, part, err, code := s.resumeTarget(r)
 	if err != nil {
 		jsonErr(w, err.Error(), code)
@@ -106,10 +102,6 @@ func (s *server) uploadStatusHandler(w http.ResponseWriter, r *http.Request) {
 // uploadChunkHandler — POST /api/files/upload/chunk?path=&id=&offset=&name=&last=1
 // Appends one slice, and on the last one moves the assembled part into place.
 func (s *server) uploadChunkHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	destDir, part, err, code := s.resumeTarget(r)
 	if err != nil {
 		jsonErr(w, err.Error(), code)

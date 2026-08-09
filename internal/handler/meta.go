@@ -23,14 +23,8 @@ type fileMeta struct {
 // metaHandler — GET /api/files/meta?path=<rel> returns created, and an image's size and EXIF date.
 // fast=1 caps the cost at local header reads: a bucket answers from sidecars or leaves fields unset.
 func (s *server) metaHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	rel := r.URL.Query().Get("path")
-	res, err := s.resolve(r, rel)
-	if err != nil {
-		jsonErr(w, err.Error(), http.StatusBadRequest)
+	res, ok := s.resolveQuery(w, r)
+	if !ok {
 		return
 	}
 	if res.isS3() {

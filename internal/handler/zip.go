@@ -13,10 +13,6 @@ import (
 
 // zipHandler — POST /api/files/zip body {paths:[...]}; streams a zip of the requested items.
 func (s *server) zipHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonErr(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	var body struct {
 		Paths []string `json:"paths"`
