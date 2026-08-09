@@ -33,8 +33,14 @@ func main() {
 	}
 
 	fs := flag.NewFlagSet("simpledrive", flag.ExitOnError)
-	addr := fs.String("addr", "", "listen address (overrides config)")
+	addr := fs.String("addr", "", "listen address as host:port, e.g. :8080 (overrides config)")
 	fs.Parse(os.Args[1:])
+
+	if *addr != "" {
+		if err := config.ValidateAddr(*addr); err != nil {
+			log.Fatalf("%v", err)
+		}
+	}
 
 	cfg, err := config.Load(configFile)
 	if err != nil {
@@ -56,7 +62,7 @@ func runSetup(args []string) {
 	username := fs.String("username", "", "login username (required)")
 	password := fs.String("password", "", "plaintext password to hash (required)")
 	rootDir := fs.String("root-dir", "", "directory to serve (required)")
-	addr := fs.String("addr", "", "listen address (required)")
+	addr := fs.String("addr", "", "listen address as host:port, e.g. :8080 (required)")
 	sessionHours := fs.Int("session-hours", 48, "session lifetime in hours")
 	trashDays := fs.Int("trash-days", config.DefaultTrashDays, "days a deleted file stays in .trash; negative keeps it")
 	trustedProxy := fs.Bool("trusted-proxy", false, "trust X-Real-IP; only behind a real reverse proxy")
@@ -77,6 +83,10 @@ func runSetup(args []string) {
 		}
 		fmt.Fprintln(os.Stderr, "usage: simpledrive setup -username <name> -password <password> -root-dir <path> -addr <addr> [options]")
 		fs.PrintDefaults()
+		os.Exit(1)
+	}
+	if err := config.ValidateAddr(*addr); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 	if len(*password) < 12 {

@@ -212,7 +212,7 @@ age -d -i vault.key <blob-id> > my-file.pdf
 
 | Key             | Setup flag       | Default | Meaning                                                                |
 | --------------- | ---------------- | ------- | ---------------------------------------------------------------------- |
-| `addr`          | `-addr`          | `:8080` | Listen address. Required at setup; `-addr` at startup overrides it.    |
+| `addr`          | `-addr`          | `:8080` | Listen address as `host:port`; the colon is required. `-addr` at startup overrides it. |
 | `root_dir`      | `-root-dir`      | —       | Directory served as the drive. Required.                               |
 | `username`      | `-username`      | —       | Login username. Required.                                              |
 | `password_hash` | `-password`      | —       | bcrypt hash of the password. Required; `setup` generates it.           |

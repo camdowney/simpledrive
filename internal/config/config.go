@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,6 +45,18 @@ func (c *Config) TrashRetention() (time.Duration, bool) {
 	return time.Duration(days) * 24 * time.Hour, true
 }
 
+// ValidateAddr rejects up front what ListenAndServe would only reject at startup.
+func ValidateAddr(addr string) error {
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil || port == "" {
+		return fmt.Errorf("addr %q must be host:port, e.g. :8080 or 127.0.0.1:8080", addr)
+	}
+	if _, err := net.LookupPort("tcp", port); err != nil {
+		return fmt.Errorf("addr %q has an invalid port %q", addr, port)
+	}
+	return nil
+}
+
 func Load(path string) (*Config, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -57,6 +70,9 @@ func Load(path string) (*Config, error) {
 	}
 	if err := json.NewDecoder(f).Decode(cfg); err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
+	}
+	if err := ValidateAddr(cfg.Addr); err != nil {
+		return nil, err
 	}
 	if cfg.Username == "" {
 		return nil, fmt.Errorf("username is required")
