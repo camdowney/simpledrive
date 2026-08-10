@@ -146,6 +146,7 @@ const applyVaultListing = (path, { pushHash = true } = {}) => {
 }
 
 const applyListing = (path, data, { pushHash = true, keepSelection = false } = {}) => {
+  const moved = state.currentPath !== path
   state.currentPath = path
   state.inVault = data.inVault === true
   // Only the vault's own folder is a real directory; a subfolder's listing carries its root along.
@@ -168,6 +169,8 @@ const applyListing = (path, data, { pushHash = true, keepSelection = false } = {
   updateNewMenu()
   updateVaultToggle()
   renderFiles()
+  // Rows are reused in place, so the container keeps its depth and a new folder opens mid-list.
+  if (moved) document.getElementById("files-container").scrollTop = 0
 }
 
 // Buckets attach to the top level only, so the option is inert anywhere deeper.
