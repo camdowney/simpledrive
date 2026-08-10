@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strconv"
@@ -61,7 +62,21 @@ const (
 	displayGenQueue = 8
 	// Kept short: it only has to outlive the two ffmpeg attempts, and it rides in argv.
 	s3ThumbURLTTL = 5 * time.Minute
+	// Ceiling on parallel decodes; past this the client's 5-connection budget binds first anyway.
+	maxDecodeConcurrency = 4
 )
+
+// Halved: a decode holds a full-size frame in the heap, ~70MB for a 48MP JPEG.
+// GOMAXPROCS, not NumCPU, so a container capped below its host's core count is sized to its cap.
+func decodeConcurrency() int {
+	return min(max(runtime.GOMAXPROCS(0)/2, 1), maxDecodeConcurrency)
+}
+
+// Bounds in-process decoding, the one stage whose buffers stack in the heap.
+var decodeSem = make(chan struct{}, decodeConcurrency())
+
+// ffmpeg buffers out of process, so it queues on its own gate rather than the decode one.
+var ffmpegSem = make(chan struct{}, decodeConcurrency())
 
 var videoThumbExts = map[string]bool{
 	".mp4": true, ".webm": true, ".mkv": true, ".mov": true, ".avi": true,
@@ -94,8 +109,6 @@ type thumbCache struct {
 	ffprobe string
 	group   singleflight.Group
 
-	// Generations run one at a time so decode buffers don't stack in memory.
-	genSem chan struct{}
 	// Bounds the display builds running off-request, so fast paging can't spawn goroutines freely.
 	bgSem chan struct{}
 
@@ -139,7 +152,6 @@ func newThumbCache(dir string) *thumbCache {
 		dir:      dir,
 		ffmpeg:   ffmpeg,
 		ffprobe:  ffprobe,
-		genSem:   make(chan struct{}, 1),
 		bgSem:    make(chan struct{}, displayGenQueue),
 		loudSem:  make(chan struct{}, loudnessConcurrency),
 		hashes:   map[string]hashedFile{},
@@ -647,12 +659,6 @@ func (c *thumbCache) ensureWith(hash string, gen func(cachePath string) error) (
 	}
 
 	_, err, _ := c.group.Do(hash, func() (any, error) {
-		c.genSem <- struct{}{}
-		defer func() { <-c.genSem }()
-		// A paired generation may have filled this variant while we queued for the semaphore.
-		if _, err := os.Stat(cachePath); err == nil {
-			return nil, nil
-		}
 		return nil, gen(cachePath)
 	})
 	if err != nil {
@@ -663,6 +669,8 @@ func (c *thumbCache) ensureWith(hash string, gen func(cachePath string) error) (
 
 // Seek 1s skips fade-in. src may be an https URL, which ffmpeg range-reads, so S3 stays off disk.
 func (c *thumbCache) generateVideoThumb(src, cachePath string) error {
+	ffmpegSem <- struct{}{}
+	defer func() { <-ffmpegSem }()
 	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
 		return err
 	}
@@ -796,6 +804,9 @@ func writeScaledAll(f io.ReadSeeker, outs []scaledOutput) error {
 	if len(outs) == 0 {
 		return nil
 	}
+	// Gated here rather than around the whole generation: an S3 fetch holds no decode buffer.
+	decodeSem <- struct{}{}
+	defer func() { <-decodeSem }()
 	sort.Slice(outs, func(i, j int) bool { return outs[i].maxDim > outs[j].maxDim })
 	orientation := jpegOrientation(f)
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
