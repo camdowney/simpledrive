@@ -145,6 +145,25 @@ func TestDropShareCannotUploadElsewhere(t *testing.T) {
 	}
 }
 
+// A vault inside the folder is the one place an upload may overwrite; a drop link still may not.
+func TestDropShareCannotOverwriteInVault(t *testing.T) {
+	s, sh := sharedServer(t, shareDrop)
+	makeVault(t, s.cfg.RootDir, "Public/Vault")
+
+	r := uploadReq(t, "/api/files/upload?path=/Public/Vault&overwrite=1", vaultKeyName, []byte("clobbered"))
+	r.AddCookie(&http.Cookie{Name: shareCookie, Value: sh.Token})
+	w := httptest.NewRecorder()
+	s.requireAccess(s.uploadHandler, accessUpload)(w, r)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("overwrite through a drop link = %d, want 403: %s", w.Code, w.Body)
+	}
+
+	key := filepath.Join(s.cfg.RootDir, "Public/Vault", vaultKeyName)
+	if body, _ := os.ReadFile(key); string(body) != "age-ciphertext" {
+		t.Fatalf("the vault key was overwritten: %q", body)
+	}
+}
+
 // A visitor has to be told what the link is, or the page can't decide what to show them.
 func TestDropShareReportsItsOwnMode(t *testing.T) {
 	s, sh := sharedServer(t, shareDrop)

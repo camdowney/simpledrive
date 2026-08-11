@@ -287,6 +287,11 @@ func (s *server) uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// A vault rewrites its index in place on every change; nothing else may overwrite on upload.
 	overwrite := r.URL.Query().Get("overwrite") == "1"
+	// A drop link only adds files, so the vault-index rewrite is not a write it may make.
+	if sh := shareOf(r); overwrite && sh != nil && !sh.canEdit() {
+		jsonErr(w, sh.refusal(), http.StatusForbidden)
+		return
+	}
 	if overwrite && (res.isS3() || !isVaultDir(destDir)) {
 		jsonErr(w, "overwrite is only allowed inside a vault", http.StatusBadRequest)
 		return

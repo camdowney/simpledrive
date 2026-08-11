@@ -497,3 +497,36 @@ func TestStatAnyDistinguishesFilesFromFolders(t *testing.T) {
 		t.Error("missing path reported as present")
 	}
 }
+
+// A symlink under the shared folder resolves inside the root, so only its target's path confines it.
+func TestShareCannotFollowSymlinkOutOfItsSubtree(t *testing.T) {
+	s, sh := sharedServer(t, shareView)
+	link := filepath.Join(s.cfg.RootDir, "Public/escape")
+	if err := os.Symlink(filepath.Join(s.cfg.RootDir, "Private"), link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	w := asShare(t, s, sh, s.readHandler, accessRead, "GET",
+		"/api/files/read?path=/Public/escape/secret.txt", nil)
+	if w.Code == http.StatusOK {
+		t.Fatalf("the link read a file outside its subtree: %s", w.Body)
+	}
+	w = asShare(t, s, sh, s.filesHandler, accessRead, "GET", "/api/files?path=/Public/escape", nil)
+	if w.Code == http.StatusOK {
+		t.Fatalf("the link listed a folder outside its subtree: %s", w.Body)
+	}
+
+	// A path with nothing at it yet is confined by where its parent lands, not by its own name.
+	edit, shEdit := sharedServer(t, shareEdit)
+	if err := os.Symlink(filepath.Join(edit.cfg.RootDir, "Private"), filepath.Join(edit.cfg.RootDir, "Public/escape")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	w = asShare(t, edit, shEdit, edit.mkdirHandler, accessWrite, "POST", "/api/files/mkdir",
+		map[string]string{"path": "/Public/escape/planted"})
+	if w.Code == http.StatusOK {
+		t.Fatalf("the link created a folder outside its subtree: %s", w.Body)
+	}
+	if _, err := os.Stat(filepath.Join(edit.cfg.RootDir, "Private/planted")); !os.IsNotExist(err) {
+		t.Fatal("a folder landed outside the link's subtree")
+	}
+}

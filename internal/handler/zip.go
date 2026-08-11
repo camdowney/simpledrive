@@ -71,7 +71,8 @@ func addFileToZip(zw *zip.Writer, abs, nameInZip string, modified time.Time) {
 
 func addDirToZip(zw *zip.Writer, absDir, prefix string) {
 	filepath.Walk(absDir, func(path string, fi os.FileInfo, err error) error {
-		if err != nil || fi.IsDir() {
+		// Walk lstats, so a symlink stays one here: following it would zip a file outside the root.
+		if err != nil || !fi.Mode().IsRegular() {
 			return nil
 		}
 		rel := strings.TrimPrefix(path, absDir)

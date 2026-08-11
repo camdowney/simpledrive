@@ -62,7 +62,13 @@ func (s *server) downloadS3(w http.ResponseWriter, r *http.Request, res *resolve
 	}
 	defer resp.Body.Close()
 
-	for _, h := range []string{"Content-Type", "Content-Length", "Content-Range", "ETag", "Last-Modified"} {
+	// Type by extension: a bucket's own Content-Type could make an inline object render as HTML.
+	ct := mime.TypeByExtension(filepath.Ext(name))
+	if ct == "" {
+		ct = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", ct)
+	for _, h := range []string{"Content-Length", "Content-Range", "ETag", "Last-Modified"} {
 		if v := resp.Header.Get(h); v != "" {
 			w.Header().Set(h, v)
 		}

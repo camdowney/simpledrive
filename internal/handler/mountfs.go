@@ -68,7 +68,8 @@ func (s *server) resolveQuery(w http.ResponseWriter, r *http.Request) (*resolved
 // where a share's subtree is enforced.
 func (s *server) resolve(r *http.Request, rel string) (*resolved, error) {
 	clean := cleanRel(rel)
-	if sh := shareOf(r); sh != nil && !sh.covers(clean) {
+	sh := shareOf(r)
+	if sh != nil && !sh.covers(clean) {
 		return nil, fmt.Errorf("not found")
 	}
 	first, rest, _ := strings.Cut(clean, "/")
@@ -89,7 +90,23 @@ func (s *server) resolve(r *http.Request, rel string) (*resolved, error) {
 	if err != nil {
 		return nil, err
 	}
+	if sh != nil && !s.shareCoversReal(sh, abs) {
+		return nil, fmt.Errorf("not found")
+	}
 	return &resolved{abs: abs}, nil
+}
+
+// safePath only proves the target is under the root; a symlink can still leave a share's subtree.
+func (s *server) shareCoversReal(sh *share, abs string) bool {
+	real, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		// Nothing there yet (a new file or folder), so its parent is what the links resolve through.
+		real, err = filepath.EvalSymlinks(filepath.Dir(abs))
+		if err != nil {
+			return false
+		}
+	}
+	return sh.covers(cleanRel(relOf(real, s.cfg.RootDir)))
 }
 
 func (s *server) lookupMount(name string) (*mount, error) {
