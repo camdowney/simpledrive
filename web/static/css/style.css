@@ -3143,16 +3143,9 @@ ul.tui-colorpicker-clearfix li {
   grid-area: 1 / 1;
   z-index: 1;
   min-height: var(--preview-bar-h);
-  transition: opacity 0.2s;
-}
-
-/* A scrim, so the media stays visible under it; on a pseudo so it fades past the bar's own box. */
-.preview-topbar::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 -24px;
-  z-index: -1;
+  /* A scrim, so the media stays visible under it; kept inside the bar so it never tints the media. */
   background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
+  transition: opacity 0.2s;
 }
 
 /* Tapping a photo hides the chrome so nothing overlays it. */
