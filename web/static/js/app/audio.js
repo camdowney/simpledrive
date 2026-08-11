@@ -352,6 +352,13 @@ const stopAudio = () => {
   clearMediaSession()
 }
 
+// The filter and the autotag pass belong to one listening session; leaving the player drops both.
+const endAudioSession = () => {
+  state.audioTags.clear()
+  state.audioTagging = null
+  shuffleOrder = []
+}
+
 // Which tags is left to the dots, so the label only has to say whether the queue is narrowed.
 const audioFilterBtnHtml = () => {
   const dots = state.tags

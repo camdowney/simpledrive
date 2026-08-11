@@ -341,6 +341,7 @@ const replacePathHash = (path) => {
 const silencePreview = () => {
   // Runs before the players clear, so the verdict reads the song's position; leaving is no skip.
   settleTagging(false, { keepOnly: true })
+  endAudioSession()
   clearMediaSession()
   for (const player of document.querySelectorAll("#preview-body video, #preview-body audio"))
     player.pause()

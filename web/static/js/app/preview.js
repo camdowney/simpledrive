@@ -137,7 +137,10 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
   // Leaving a song settles the verdict tagging owes it, and silences it unless another follows.
   if (state.previewType === "audio") {
     settleTagging(false)
-    if (type !== "audio") stopAudio()
+    if (type !== "audio") {
+      stopAudio()
+      endAudioSession()
+    }
   }
   showPreviewView()
   // Paging replaces the hash in place so the viewer stays one history entry.
