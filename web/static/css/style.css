@@ -4280,7 +4280,7 @@ ul.tui-colorpicker-clearfix li {
 }
 
 .storage-heading {
-  margin: 18px 0 10px;
+  margin: 12px 0 10px;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
@@ -4362,7 +4362,7 @@ ul.tui-colorpicker-clearfix li {
 .storage-summary {
   display: flex;
   gap: 10px;
-  margin-top: 6px;
+  margin-top: 8px;
   min-height: 18px;
   font-size: 13px;
   line-height: 1.4;
