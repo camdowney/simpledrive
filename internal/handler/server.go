@@ -43,7 +43,7 @@ func New(cfg *config.Config, webFS embed.FS) http.Handler {
 	s := &server{
 		cfg:       cfg,
 		sessions:  auth.NewStore(time.Duration(cfg.SessionHours) * time.Hour),
-		limiter:   auth.NewRateLimiter(cfg.TrustedProxy),
+		limiter:   auth.NewRateLimiter(),
 		webFS:     webFS,
 		version:   assetVersion(webFS),
 		mux:       http.NewServeMux(),

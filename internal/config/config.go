@@ -18,8 +18,6 @@ type Config struct {
 	SessionHours int    `json:"session_hours"`
 	// Days a deleted file waits in .trash before auto-purge. 0 uses the default; negative never purges.
 	TrashDays int `json:"trash_days"`
-	// Trust X-Real-IP from a reverse proxy. Enable only behind a real proxy; else spoofable.
-	TrustedProxy bool `json:"trusted_proxy"`
 
 	// Derived: sit next to config.json, which must stay outside RootDir since some hold secrets.
 	ThumbCacheDir  string `json:"-"`

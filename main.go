@@ -65,7 +65,6 @@ func runSetup(args []string) {
 	addr := fs.String("addr", "", "listen address as host:port, e.g. :8080 (required)")
 	sessionHours := fs.Int("session-hours", 48, "session lifetime in hours")
 	trashDays := fs.Int("trash-days", config.DefaultTrashDays, "days a deleted file stays in .trash; negative keeps it")
-	trustedProxy := fs.Bool("trusted-proxy", false, "trust X-Real-IP; only behind a real reverse proxy")
 	fs.Parse(args)
 
 	if *username == "" || *password == "" || *rootDir == "" || *addr == "" {
@@ -106,7 +105,6 @@ func runSetup(args []string) {
 		PasswordHash: string(hash),
 		SessionHours: *sessionHours,
 		TrashDays:    *trashDays,
-		TrustedProxy: *trustedProxy,
 	}
 
 	data, _ := json.MarshalIndent(cfg, "", "  ")

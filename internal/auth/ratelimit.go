@@ -21,35 +21,42 @@ type attempt struct {
 }
 
 type RateLimiter struct {
-	mu           sync.Mutex
-	attempts     map[string]*attempt
-	trustedProxy bool
+	mu       sync.Mutex
+	attempts map[string]*attempt
 }
 
-func NewRateLimiter(trustedProxy bool) *RateLimiter {
-	r := &RateLimiter{
-		attempts:     make(map[string]*attempt),
-		trustedProxy: trustedProxy,
-	}
+func NewRateLimiter() *RateLimiter {
+	r := &RateLimiter{attempts: make(map[string]*attempt)}
 	go r.cleanup()
 	return r
 }
 
-// remoteIP returns the client IP, preferring X-Real-IP when behind a trusted proxy.
+// remoteIP keys the lockout: a forged header would buy a fresh bucket, so only a local proxy is heard.
 func (r *RateLimiter) remoteIP(req *http.Request) string {
-	if r.trustedProxy {
-		if raw := req.Header.Get("X-Real-IP"); raw != "" {
-			ip := strings.TrimSpace(raw)
-			if net.ParseIP(ip) != nil {
-				return ip
-			}
-		}
-	}
-	ip, _, err := net.SplitHostPort(req.RemoteAddr)
+	host, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
-		return req.RemoteAddr
+		host = req.RemoteAddr
 	}
-	return ip
+	if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
+		return host
+	}
+	return forwardedFor(req, host)
+}
+
+// A client sends an X-Forwarded-For of its own that the proxy appends to, so the proxy's entry is
+// the last. X-Real-IP is read only when no chain arrived, since a proxy may pass a forged one on.
+func forwardedFor(req *http.Request, fallback string) string {
+	if chain := req.Header.Get("X-Forwarded-For"); chain != "" {
+		last := chain[strings.LastIndexByte(chain, ',')+1:]
+		if ip := net.ParseIP(strings.TrimSpace(last)); ip != nil {
+			return ip.String()
+		}
+		return fallback
+	}
+	if ip := net.ParseIP(strings.TrimSpace(req.Header.Get("X-Real-IP"))); ip != nil {
+		return ip.String()
+	}
+	return fallback
 }
 
 func (r *RateLimiter) Allow(req *http.Request) bool {

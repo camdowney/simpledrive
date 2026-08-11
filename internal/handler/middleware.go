@@ -94,10 +94,7 @@ func (s *server) sessionToken(r *http.Request) string {
 	return c.Value
 }
 
-// secureRequest reports whether the request is HTTPS (direct TLS or trusted-proxy header).
+// The flag only narrows where a cookie may travel, so a forged hint costs its sender their own login.
 func (s *server) secureRequest(r *http.Request) bool {
-	if r.TLS != nil {
-		return true
-	}
-	return s.cfg.TrustedProxy && r.Header.Get("X-Forwarded-Proto") == "https"
+	return r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 }

@@ -94,10 +94,6 @@ drive.yourdomain.com {
 Reload Caddy (`sudo systemctl reload caddy`) and SimpleDrive is now available at
 `https://drive.yourdomain.com`.
 
-Set `trusted_proxy` to `true` in `config.json` once you are behind a real
-reverse proxy, so login rate limiting sees the visitor's address rather than the
-proxy's. Leave it off otherwise, since the header it trusts is easy to spoof.
-
 ## Adding ffmpeg (optional)
 
 Optionally, install [ffmpeg](https://ffmpeg.org/) (which includes ffprobe).
@@ -210,15 +206,14 @@ age -d -i vault.key <blob-id> > my-file.pdf
 
 `setup` writes all seven keys below into `config.json`. Edit it in place to change anything.
 
-| Key             | Setup flag       | Default | Meaning                                                                |
-| --------------- | ---------------- | ------- | ---------------------------------------------------------------------- |
+| Key             | Setup flag       | Default | Meaning                                                                                |
+| --------------- | ---------------- | ------- | -------------------------------------------------------------------------------------- |
 | `addr`          | `-addr`          | `:8080` | Listen address as `host:port`; the colon is required. `-addr` at startup overrides it. |
-| `root_dir`      | `-root-dir`      | —       | Directory served as the drive. Required.                               |
-| `username`      | `-username`      | —       | Login username. Required.                                              |
-| `password_hash` | `-password`      | —       | bcrypt hash of the password. Required; `setup` generates it.           |
-| `session_hours` | `-session-hours` | `48`    | Session lifetime. Absent from `config.json`, it is 24.                 |
-| `trash_days`    | `-trash-days`    | `7`     | Days a deleted file stays in `.trash`. Negative keeps it indefinitely. |
-| `trusted_proxy` | `-trusted-proxy` | `false` | Trust `X-Real-IP`. Only enable behind a real reverse proxy.            |
+| `root_dir`      | `-root-dir`      | —       | Directory served as the drive. Required.                                               |
+| `username`      | `-username`      | —       | Login username. Required.                                                              |
+| `password_hash` | `-password`      | —       | bcrypt hash of the password. Required; `setup` generates it.                           |
+| `session_hours` | `-session-hours` | `48`    | Session lifetime. Absent from `config.json`, it is 24.                                 |
+| `trash_days`    | `-trash-days`    | `7`     | Days a deleted file stays in `.trash`. Negative keeps it indefinitely.                 |
 
 Alongside `config.json`, the server keeps `thumbcache/` (thumbnails),
 `prefs.json` (UI preferences), `tags.json` (tag catalog and assignments),
