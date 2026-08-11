@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"mime"
 	"net/http"
 	"os"
 	"os/exec"
@@ -19,6 +21,9 @@ const trimTimeout = 2 * time.Minute
 
 // minTrimSeconds keeps a mis-drag from producing a file with nothing in it.
 const minTrimSeconds = 0.1
+
+// How far ahead of the mark the index seek lands; the packets between are read and dropped.
+const trimSeekLead = 10
 
 // trimAudioHandler — POST /api/media/trim-audio
 // body: {path, start, end, replace}; start and end are seconds from the beginning.
@@ -80,7 +85,52 @@ func (s *server) trimAudioHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, res)
 }
 
-// No re-encode: ffmpeg cuts on frame boundaries, so marks land within ~26ms (MP3) of the request.
+// trimPreviewHandler — GET /api/media/trim-preview?path=<rel>&start=<s>&end=<s>
+// Hands back the very bytes a trim of that span would write. A VBR file's position is an estimate
+// the player interpolates, so auditioning the source would audition a different cut than it makes.
+func (s *server) trimPreviewHandler(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	start, errS := strconv.ParseFloat(q.Get("start"), 64)
+	end, errE := strconv.ParseFloat(q.Get("end"), 64)
+	if errS != nil || errE != nil || start < 0 || end-start < minTrimSeconds {
+		jsonErr(w, "bad range", http.StatusBadRequest)
+		return
+	}
+	if s.thumbs.ffmpeg == "" {
+		jsonErr(w, "ffmpeg is not installed on the server", http.StatusServiceUnavailable)
+		return
+	}
+	abs, err := s.localEditTarget(r, q.Get("path"), audioExts)
+	if err != nil {
+		jsonErr(w, err.Error(), editStatus(err))
+		return
+	}
+
+	tmp, err := os.CreateTemp("", "trim-preview-*")
+	if err != nil {
+		jsonErr(w, "the preview failed", http.StatusInternalServerError)
+		return
+	}
+	tmp.Close()
+	defer os.Remove(tmp.Name())
+	if err := trimAudio(s.thumbs.ffmpeg, abs, tmp.Name(), start, end); err != nil {
+		jsonErr(w, "the preview failed", http.StatusInternalServerError)
+		return
+	}
+	f, err := os.Open(tmp.Name())
+	if err != nil {
+		jsonErr(w, "the preview failed", http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	w.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(abs)))
+	// Regenerated per press and never the file on disk, so nothing downstream should hold it.
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeContent(w, r, filepath.Base(abs), time.Time{}, f)
+}
+
+// No re-encode: ffmpeg cuts on packet boundaries, so marks land within ~50ms of the request.
 func trimAudio(bin, src, dst string, start, end float64) error {
 	// The temp file commitEdit hands over has no extension for ffmpeg to infer a muxer from.
 	format, err := trimFormat(src)
@@ -90,12 +140,16 @@ func trimAudio(bin, src, dst string, start, end float64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), trimTimeout)
 	defer cancel()
 
+	lead := math.Max(0, start-trimSeekLead)
 	cmd := exec.CommandContext(ctx, bin, "-nostdin", "-v", "error",
 		// -ss ahead of -i seeks by index instead of decoding up to the mark.
-		"-ss", secondsArg(start), "-i", src,
+		"-ss", secondsArg(lead), "-i", src,
+		// An index seek lands on a container boundary — an Ogg page is nearly a second — so the
+		// mark itself is placed by a second -ss, which drops packets after the coarse landing.
+		"-ss", secondsArg(start-lead),
 		// A duration is unambiguous; -to shifts meaning relative to an input seek across versions.
 		"-t", secondsArg(end-start),
-		"-map", "0:a", "-c", "copy", "-map_metadata", "0",
+		"-map", "0:a", "-c:a", trimCodec(format), "-map_metadata", "0",
 		"-f", format, "-y", dst)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -109,6 +163,15 @@ func trimAudio(bin, src, dst string, start, end float64) error {
 		return &editError{"the trim produced an empty file", http.StatusUnsupportedMediaType}
 	}
 	return nil
+}
+
+// A stream copy hands the FLAC muxer the source's STREAMINFO, so the cut would keep declaring the
+// original's length. Re-encoding rewrites it, and FLAC being lossless that costs only time.
+func trimCodec(format string) string {
+	if format == "flac" {
+		return "flac"
+	}
+	return "copy"
 }
 
 // trimFormat maps an extension to the muxer name ffmpeg needs when the output has no extension.

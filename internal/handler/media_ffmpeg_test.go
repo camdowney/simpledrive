@@ -168,6 +168,55 @@ func TestTrimAudioReplaceKeepsOriginalInTrash(t *testing.T) {
 	}
 }
 
+// The dialog auditions this, so a span that isn't the span the trim would write is the whole bug.
+func TestTrimPreviewServesTheRequestedSpan(t *testing.T) {
+	bin := requireFFmpeg(t)
+	s, root := trashServer(t)
+	src := filepath.Join(root, "song.mp3")
+	synthAudio(t, bin, src, 12, "-6dB")
+
+	rec := httptest.NewRecorder()
+	s.trimPreviewHandler(rec, httptest.NewRequest(http.MethodGet,
+		"/api/media/trim-preview?path=song.mp3&start=4&end=7", nil))
+	if rec.Code != 200 {
+		t.Fatalf("got %d, want 200 (%s)", rec.Code, rec.Body)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "audio/") {
+		t.Errorf("content type: got %q, want audio/*", ct)
+	}
+	if rec.Body.Len() == 0 {
+		t.Fatal("empty preview body")
+	}
+
+	probe, err := exec.LookPath("ffprobe")
+	if err != nil {
+		return
+	}
+	clip := filepath.Join(t.TempDir(), "clip.mp3")
+	if err := os.WriteFile(clip, rec.Body.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if d := ffprobeDuration(probe, clip); d != 3 {
+		t.Errorf("preview duration: got %ds, want 3s", d)
+	}
+	if d := ffprobeDuration(probe, src); d != 12 {
+		t.Errorf("source was modified: %ds", d)
+	}
+}
+
+func TestTrimPreviewRejectsBadRange(t *testing.T) {
+	s, root := trashServer(t)
+	if err := os.WriteFile(filepath.Join(root, "song.mp3"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	s.trimPreviewHandler(rec, httptest.NewRequest(http.MethodGet,
+		"/api/media/trim-preview?path=song.mp3&start=7&end=4", nil))
+	if rec.Code != 400 {
+		t.Errorf("got %d, want 400", rec.Code)
+	}
+}
+
 func TestTranscodeVideoShrinksAndConvertsToH264(t *testing.T) {
 	bin := requireFFmpeg(t)
 	probe, err := exec.LookPath("ffprobe")

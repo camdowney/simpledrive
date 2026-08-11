@@ -147,16 +147,18 @@ const replaceRowHtml = (label) => `
     <span>${esc(label)}</span>
   </label>`
 
-// Parks the playhead this far before a moved end mark, so play auditions the cutoff, not silence.
+// How far back play starts when the playhead sits on the end mark, so it auditions the cutoff.
 const TRIM_TAIL_PREVIEW = 3
 
 const showTrimAudio = (path, name) => {
   const page = audioPlayer()
-  // Its own element: sharing the viewer's player let page playback drive this dialog.
+  // Metadata only: this file is here for its length, never to be played. Seeking it would land
+  // wherever a VBR estimate says, which is not where the cut goes; auditions come from the server.
   const audio = new Audio()
   audio.preload = "metadata"
-  audio.volume = clamp01(userVolume * trackGain)
   audio.src = previewSrcs(currentPreviewEntry(), path, name, "audio").original
+  const clip = new Audio()
+  clip.volume = clamp01(userVolume * trackGain)
   page?.pause()
 
   // Same file, so its length is worth borrowing: the end mark is right on the first frame.
@@ -164,6 +166,8 @@ const showTrimAudio = (path, name) => {
   let start = 0
   let end = duration
   let cursor = 0
+  let clipFrom = 0
+  let clipTo = -1 // end mark the loaded clip was cut for; -1 whenever the playhead or span moves
   let raf = null
   let dragging = null
 
@@ -271,7 +275,7 @@ const showTrimAudio = (path, name) => {
   const seek = (t) => {
     const top = Math.max(start, end) // an inverted span is a half-typed one; don't fight it
     cursor = Math.min(top, Math.max(start, t))
-    audio.currentTime = cursor
+    clipTo = -1 // the loaded clip started somewhere the playhead no longer is
     paint()
   }
 
@@ -285,45 +289,58 @@ const showTrimAudio = (path, name) => {
       endInp.value = fmtTrimTime(t)
     }
     syncLength()
-    // A moved mark takes the playhead with it, so play auditions the edge just placed.
-    if (park) seek(mark === "start" ? start : end - TRIM_TAIL_PREVIEW)
+    // Onto the mark itself, not the run-up to it: the clock reads the cut, and play backs up.
+    if (park) seek(mark === "start" ? start : end)
     else seek(cursor)
   }
 
   // Read from the element: a play() the browser refuses must not leave a pause icon over silence.
   const syncPlayIcon = () => {
-    playBtn.classList.toggle("playing", !audio.paused)
-    playBtn.querySelector("use").setAttribute("href", audio.paused ? "#icon-play" : "#icon-pause")
-    playBtn.setAttribute("aria-label", audio.paused ? "Play selection" : "Pause")
+    playBtn.classList.toggle("playing", !clip.paused)
+    playBtn.querySelector("use").setAttribute("href", clip.paused ? "#icon-play" : "#icon-pause")
+    playBtn.setAttribute("aria-label", clip.paused ? "Play selection" : "Pause")
   }
 
   // The playhead runs off rAF rather than timeupdate, which only fires about four times a second.
   const follow = () => {
-    if (audio.currentTime >= end) {
-      audio.pause()
-      cursor = end
-      paint()
-    } else {
-      cursor = audio.currentTime
-      head.style.left = pct(cursor) + "%"
-      clock.textContent = fmtTrimTime(cursor)
-    }
+    cursor = Math.min(end, clipFrom + clip.currentTime)
+    head.style.left = pct(cursor) + "%"
+    clock.textContent = fmtTrimTime(cursor)
     syncPlayIcon()
     // Idles when the audio stops, so an open dialog doesn't hold a frame callback forever.
-    raf = audio.paused ? null : requestAnimationFrame(follow)
+    raf = clip.paused ? null : requestAnimationFrame(follow)
   }
 
   const pausePlayback = () => {
     cancelAnimationFrame(raf)
     raf = null
-    audio.pause()
+    clip.pause()
     syncPlayIcon()
   }
 
+  // The clip runs out on its own at the end mark, which is the whole point of cutting it there.
+  clip.addEventListener("ended", () => {
+    cursor = end
+    paint()
+    syncPlayIcon()
+  })
+
+  const clipUrl = (from, to) =>
+    `/api/media/trim-preview?path=${encodeURIComponent(path)}` +
+    `&start=${from.toFixed(3)}&end=${to.toFixed(3)}`
+
   const togglePlay = () => {
-    if (!audio.paused) return pausePlayback()
-    if (cursor >= end - 0.05) seek(start) // ran to the cutoff already; a replay starts over
-    audio.play().then(syncPlayIcon, syncPlayIcon)
+    if (!clip.paused) return pausePlayback()
+    // Sitting on the cutoff, so back up and audition it rather than play nothing.
+    if (cursor >= end - 0.05) seek(Math.max(start, end - TRIM_TAIL_PREVIEW))
+    if (end - cursor < 0.1) return
+    // Cut by the same code the trim runs, so the audition is the output, not an estimate of it.
+    if (clipTo !== end) {
+      clipFrom = cursor
+      clipTo = end
+      clip.src = clipUrl(cursor, end)
+    }
+    clip.play().then(syncPlayIcon, syncPlayIcon)
     if (!raf) raf = requestAnimationFrame(follow)
   }
 
@@ -341,16 +358,22 @@ const showTrimAudio = (path, name) => {
     e.preventDefault()
     const handle = e.target.closest(".trim-handle")
     dragging = handle ? handle.dataset.mark : "seek"
+    // The clip playing was cut for the old span from the old playhead; either drag outdates it.
+    pausePlayback()
     if (handle) {
       handle.focus() // claiming the pointerdown above skipped the focus the click would have given
-      pausePlayback() // a drag reseeks on every move, which would machine-gun the decoder
     }
-    scrub.setPointerCapture(e.pointerId)
+    // A pointer the browser won't hand over is no reason to drop the drag it already started.
+    try {
+      scrub.setPointerCapture(e.pointerId)
+    } catch {}
     onDragMove(e)
   })
 
   const onDragMove = (e) => {
     if (!dragging) return
+    // A release the capture never delivered would otherwise leave the mark trailing the cursor.
+    if (e.buttons === 0) return endDrag()
     const t = timeAt(e.clientX)
     if (dragging === "seek") return seek(t)
     // Marks can't cross: each stops a hair short of the other so the span never inverts.
@@ -360,8 +383,9 @@ const showTrimAudio = (path, name) => {
 
   scrub.addEventListener("pointermove", onDragMove)
   const endDrag = () => (dragging = null)
-  scrub.addEventListener("pointerup", endDrag)
-  scrub.addEventListener("pointercancel", endDrag)
+  // On the window: a capture lost mid-drag sends the release somewhere the bar never hears it.
+  window.addEventListener("pointerup", endDrag)
+  window.addEventListener("pointercancel", endDrag)
 
   // Arrow keys nudge a focused handle, which is the only way to place one precisely by keyboard.
   for (const [mark, el] of Object.entries(handles)) {
@@ -380,13 +404,15 @@ const showTrimAudio = (path, name) => {
     const s = parseTrimTime(startInp.value)
     const e = parseTrimTime(endInp.value)
     const typed = mark === "start" ? s : e
-    if (s !== null) start = Math.min(s, duration)
-    if (e !== null) end = Math.min(e, duration)
+    // Unclamped: a VBR file with no seek table reads short here, and clamping to that estimate
+    // silently pulls a typed mark back. Past the real end ffmpeg just stops there.
+    if (s !== null) start = s
+    if (e !== null) end = e
     syncLength()
     // Typing a mark parks the playhead on it, the same as dragging its handle does.
     if (typed === null) return seek(cursor)
     pausePlayback() // every keystroke reseeks, which mid-playback machine-guns the decoder
-    seek(mark === "start" ? start : end - TRIM_TAIL_PREVIEW)
+    seek(mark === "start" ? start : end)
   }
 
   startInp.addEventListener("input", () => readMarks("start"))
@@ -394,11 +420,15 @@ const showTrimAudio = (path, name) => {
   // The viewer pages songs on arrow keys, which would swap the file out from under the dialog.
   for (const el of [startInp, endInp]) el.addEventListener("keydown", (ev) => ev.stopPropagation())
 
-  // Closing has to silence a detached element nothing else holds a handle to.
+  // Closing has to silence detached elements nothing else holds a handle to.
   const dismiss = () => {
     pausePlayback()
-    audio.removeAttribute("src")
-    audio.load() // aborts the in-flight media fetch too
+    for (const el of [audio, clip]) {
+      el.removeAttribute("src")
+      el.load() // aborts the in-flight media fetch too
+    }
+    window.removeEventListener("pointerup", endDrag)
+    window.removeEventListener("pointercancel", endDrag)
     closeModal()
   }
   const backdrop = document.getElementById("modal-backdrop")

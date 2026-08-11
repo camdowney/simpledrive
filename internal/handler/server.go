@@ -88,6 +88,7 @@ func New(cfg *config.Config, webFS embed.FS) http.Handler {
 	s.mux.HandleFunc("/api/files/loudness", s.requireAccess(get(s.loudnessHandler), accessRead))
 
 	s.mux.HandleFunc("/api/media/trim-audio", s.requireAccess(post(s.trimAudioHandler), accessWrite))
+	s.mux.HandleFunc("/api/media/trim-preview", s.requireAccess(get(s.trimPreviewHandler), accessWrite))
 	s.mux.HandleFunc("/api/media/resize-image", s.requireAccess(post(s.resizeImageHandler), accessWrite))
 	s.mux.HandleFunc("/api/media/resize-video", s.requireAccess(post(s.resizeVideoHandler), accessWrite))
 	// Owner-only: the queue names paths across the whole drive, not just a share's subtree.
