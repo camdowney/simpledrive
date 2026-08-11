@@ -67,7 +67,10 @@ const showStorage = () => {
       const pct = u.total ? Math.min(100, Math.round((u.used / u.total) * 100)) : 0
       meterEl.innerHTML = `
         <div class="storage-bar"><div class="storage-bar-fill" style="width:${pct}%"></div></div>
-        <p class="storage-line"><strong>${fmtSize(u.free)}</strong> free of ${fmtSize(u.total)}</p>`
+        <p class="storage-line">
+          <span><strong>${fmtSize(u.free)}</strong> free</span>
+          <span>${fmtSize(u.used)} of ${fmtSize(u.total)} used</span>
+        </p>`
     })
     .catch((e) => {
       meterEl.innerHTML = `<p class="storage-note">${esc(e.message)}</p>`

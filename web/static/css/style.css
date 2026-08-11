@@ -4274,6 +4274,9 @@ ul.tui-colorpicker-clearfix li {
 }
 
 .storage-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
   margin-top: 8px;
   font-size: 13px;
   color: var(--text-muted);
