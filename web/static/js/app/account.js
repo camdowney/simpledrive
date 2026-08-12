@@ -230,7 +230,7 @@ const showRecoveryCode = (code, dir) => {
 }
 
 const uploadToVault = async (upload, path) => {
-  if (!vaultUnlocked()) {
+  if (!Vault.covers(path)) {
     toast("Unlock this vault before adding files", true)
     return
   }
@@ -286,6 +286,138 @@ const uploadToVault = async (upload, path) => {
     progressEl.classList.remove("active")
     barEl.style.width = "0"
   }, 1500)
+}
+
+// ─── Importing ────────────────────────────────────────────────────────────────
+
+// The server can't encrypt, so a file entering a vault is read back into the page, sealed here and
+// written under a fresh blob id — never moved or copied server-side.
+
+// Flattens a server folder into the shape uploadFiles walks, so its dir-making is reused as is.
+const scanForVault = async (path, relDir, plan) => {
+  const data = await api("GET", `/api/files?path=${encodeURIComponent(path)}`)
+  for (const e of data?.entries || []) {
+    if (e.isTrash || e.isMount || e.isVault) continue
+    const at = joinPath(path, e.name)
+    if (!e.isDir) {
+      plan.files.push({ path: at, name: e.name, size: e.size || 0, mime: e.mimeType, relDir })
+      continue
+    }
+    const dir = `${relDir}/${e.name}`
+    plan.dirs.push(dir)
+    await scanForVault(at, dir, plan)
+  }
+}
+
+const vaultBytesOf = async (path) => {
+  const res = await fetch(`/api/files/download?path=${encodeURIComponent(path)}`)
+  if (!res.ok) throw new Error("could not be read")
+  return new Uint8Array(await res.arrayBuffer())
+}
+
+// Which of the originals a move may delete: the ones whose whole subtree made it in.
+const importRootOf = (f) => (f.relDir ? f.relDir.split("/")[0] : f.name)
+
+const importToVault = async (entries, destDir, { move }) => {
+  const usable = entries.filter((e) => !e.isMount && !e.isVault && !e.isTrash)
+  if (usable.length < entries.length) toast("A bucket or a vault can't go inside a vault", true)
+  if (!usable.length) return
+  const root = vaultSubOf(destDir)
+
+  const progressEl = document.getElementById("upload-progress")
+  const titleEl = document.getElementById("upload-progress-title")
+  const labelEl = document.getElementById("progress-label")
+  const barEl = document.getElementById("progress-bar-fill")
+  progressEl.classList.add("active")
+  barEl.style.width = "0%"
+  titleEl.textContent = "Preparing…"
+  labelEl.textContent = ""
+
+  const done = () => {
+    barEl.style.width = "100%"
+    labelEl.textContent = "Done"
+    setTimeout(() => {
+      progressEl.classList.remove("active")
+      barEl.style.width = "0"
+    }, 1500)
+  }
+
+  const plan = { files: [], dirs: [] }
+  try {
+    for (const entry of usable) {
+      const at = entryPath(entry)
+      if (!entry.isDir) {
+        plan.files.push({
+          path: at,
+          name: entry.name,
+          size: entry.size || 0,
+          mime: entry.mimeType,
+          relDir: "",
+        })
+        continue
+      }
+      plan.dirs.push(entry.name)
+      await scanForVault(at, entry.name, plan)
+    }
+  } catch (e) {
+    progressEl.classList.remove("active")
+    toast(e.message, true)
+    return
+  }
+
+  const dirs = await makeUploadDirs(plan, (at, name, unique) =>
+    Vault.mkdir(under(root, at), name, { unique })
+  )
+  // A partly imported folder keeps its original: the move would drop files that never arrived.
+  const broken = new Set()
+  for (const dir of plan.dirs) if (!dirs.has(dir)) broken.add(dir.split("/")[0])
+
+  const totalBytes = plan.files.reduce((n, f) => n + f.size, 0) || 1
+  let doneBytes = 0
+  for (let i = 0; i < plan.files.length; i++) {
+    const f = plan.files[i]
+    const dest = dirs.get(f.relDir)
+    if (dest === undefined) {
+      doneBytes += f.size
+      broken.add(importRootOf(f))
+      continue
+    }
+    titleEl.textContent = `Encrypting “${f.name}”`
+    labelEl.textContent = `${i + 1} / ${plan.files.length}`
+    try {
+      const bytes = await vaultBytesOf(f.path)
+      await Vault.addBytes(under(root, dest), f.name, bytes, {
+        mime: f.mime || "",
+        onProgress: (loaded) => {
+          const at = Math.min(doneBytes + loaded, totalBytes)
+          barEl.style.width = `${Math.round((at / totalBytes) * 100)}%`
+        },
+      })
+    } catch (e) {
+      broken.add(importRootOf(f))
+      toast(`“${f.name}” ${e.message}`, true)
+    }
+    doneBytes += f.size
+  }
+
+  const landed = usable.filter((e) => !broken.has(e.name))
+  if (move) {
+    for (const entry of landed) {
+      try {
+        await api("POST", "/api/files/delete", { path: entryPath(entry) })
+      } catch (e) {
+        toast(`Copied “${entry.name}” in, but the original stayed: ${e.message}`, true)
+      }
+    }
+  }
+  done()
+  if (!landed.length) return
+  state.selected.clear()
+  const n = `${landed.length} item${landed.length === 1 ? "" : "s"}`
+  if (!move) return toast(`Copied ${n} into the vault`)
+  // Delete leaves the plaintext recoverable, which is a surprise for anything sealed in a vault.
+  toast(`Moved ${n} into the vault — the originals are in the trash`)
+  navigate(state.currentPath)
 }
 
 // One file at a time: the browser can only be handed bytes it holds, and no server zip reaches in.

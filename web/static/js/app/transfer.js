@@ -231,7 +231,9 @@ const uploadFiles = async (upload, path) => {
   const { files } = upload
   if (!files.length && !upload.dirs.length) return
   // A vault encrypts in the page first, so it can't ride the plain multipart upload path.
-  if (state.inVault) return uploadToVault(upload, path)
+  // The destination decides, not the open folder: the picker can land these in a vault from outside.
+  if (Vault.covers(path) || (state.inVault && path === state.currentPath))
+    return uploadToVault(upload, path)
   const total = files.length
   const progressEl = document.getElementById("upload-progress")
   const titleEl = document.getElementById("upload-progress-title")

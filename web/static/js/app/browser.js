@@ -760,6 +760,7 @@ const openEntry = async (entry) => {
 const moveEntriesToDir = async (entries, destDir) => {
   const cleanDest = "/" + destDir.replace(/^\/+|\/+$/g, "")
   if (state.inVault) return moveWithinVault(entries, cleanDest)
+  if (Vault.covers(cleanDest)) return importToVault(entries, cleanDest, { move: true })
   let moved = 0
   for (const entry of entries) {
     const from = relPath(entry.name)
@@ -810,6 +811,7 @@ const moveWithinVault = async (entries, destDir) => {
 
 const copyEntriesToDir = async (entries, destDir) => {
   const cleanDest = "/" + destDir.replace(/^\/+|\/+$/g, "")
+  if (Vault.covers(cleanDest)) return importToVault(entries, cleanDest, { move: false })
   let copied = 0
   for (const entry of entries) {
     const from = entryPath(entry)
@@ -841,7 +843,6 @@ const pickerRowHtml = (entry) => `
 // blocked names folders the destination can't be: a folder can't be moved inside itself.
 const showFolderPicker = ({ title, okLabel, start, blocked = [], onPick }) => {
   let at = withinHome(start) ? start : homePath()
-  const inVault = Vault.covers(at)
 
   const cleanup = showExtraModal({
     title,
@@ -885,7 +886,7 @@ const showFolderPicker = ({ title, okLabel, start, blocked = [], onPick }) => {
     pathEl.title = at
     document.getElementById("picker-up").disabled = at === homePath()
     let entries
-    if (inVault) {
+    if (Vault.covers(at)) {
       entries = Vault.list(vaultSubOf(at))
     } else {
       try {
@@ -900,7 +901,8 @@ const showFolderPicker = ({ title, okLabel, start, blocked = [], onPick }) => {
       (e) =>
         e.isDir &&
         !e.isTrash &&
-        !e.isVault &&
+        // An unlocked vault takes files like any folder; a locked one has nowhere to put them.
+        (!e.isVault || Vault.covers(joinPath(at, e.name))) &&
         (state.showHidden || !e.name.startsWith(".")) &&
         !blocked.includes(joinPath(at, e.name))
     )
@@ -926,7 +928,7 @@ const showFolderPicker = ({ title, okLabel, start, blocked = [], onPick }) => {
     const name = newName.value.trim()
     if (!name) return
     try {
-      const made = inVault
+      const made = Vault.covers(at)
         ? await Vault.mkdir(vaultSubOf(at), name, { unique: true })
         : (await api("POST", "/api/files/mkdir", { path: joinPath(at, name), unique: true }))?.name
       newRow.classList.add("hidden")
@@ -1015,6 +1017,8 @@ const resolveDropTarget = (el) => {
     const entry = state.entries.find((e) => e.name === name)
     if (entry && entry.isDir && !entry.isTrash && !drag.entries.some((d) => d.name === name)) {
       const dir = relPath(name)
+      // A locked vault can only take ciphertext, and nothing here holds the key to make any.
+      if (entry.isVault && !Vault.covers(dir)) return null
       return { el: item, dir }
     }
     return null
