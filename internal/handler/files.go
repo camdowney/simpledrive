@@ -31,6 +31,8 @@ type entry struct {
 	// A picture's pixel size, so the viewer's thumb stand-in holds the rect the full image will fill.
 	Width  int `json:"width,omitempty"`
 	Height int `json:"height,omitempty"`
+	// A track's length, so its pill paints with the listing instead of a fetch per row.
+	Duration int `json:"duration,omitempty"`
 }
 
 // maxEditableSize caps what the text editor will load, on either backend.
@@ -142,7 +144,7 @@ func (s *server) filesHandler(w http.ResponseWriter, r *http.Request) {
 	entries := make([]entry, 0, len(infos))
 	// Decoding headers is cheap but not free; past the budget the rest fills in behind the response.
 	budget := listingDimsBudget
-	var cold []string
+	var cold, coldAudio []string
 	for _, info := range infos {
 		// Half-finished uploads are the server's own scratch space, not something to browse.
 		if atRoot && info.Name() == uploadsDirName {
@@ -160,7 +162,8 @@ func (s *server) filesHandler(w http.ResponseWriter, r *http.Request) {
 		if !info.IsDir() {
 			e.Size = fi.Size()
 			e.MimeType = mime.TypeByExtension(filepath.Ext(info.Name()))
-			if imageThumbExts[strings.ToLower(filepath.Ext(info.Name()))] {
+			switch ext := strings.ToLower(filepath.Ext(info.Name())); {
+			case imageThumbExts[ext]:
 				child := filepath.Join(abs, info.Name())
 				if w, h, ok := s.thumbs.knownImageSize(child, fi); ok {
 					e.Width, e.Height = w, h
@@ -169,6 +172,14 @@ func (s *server) filesHandler(w http.ResponseWriter, r *http.Request) {
 					e.Width, e.Height = s.thumbs.imageSize(child, fi)
 				} else {
 					cold = append(cold, child)
+				}
+			case audioExts[ext]:
+				// Probing costs a hash of the file, so only an already-measured track answers here.
+				child := filepath.Join(abs, info.Name())
+				if d, ok := s.thumbs.knownDuration(child, fi); ok {
+					e.Duration = d
+				} else {
+					coldAudio = append(coldAudio, child)
 				}
 			}
 		} else {
@@ -201,11 +212,16 @@ func (s *server) filesHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// The next listing of this folder answers them for free; until then the viewer asks per file.
-	if len(cold) > 0 {
+	if len(cold) > 0 || len(coldAudio) > 0 {
 		s.thumbs.background(func() {
 			for _, p := range cold {
 				if fi, err := os.Stat(p); err == nil {
 					s.thumbs.imageSize(p, fi)
+				}
+			}
+			for _, p := range coldAudio {
+				if fi, err := os.Stat(p); err == nil {
+					s.thumbs.durationOf(p, fi)
 				}
 			}
 		})

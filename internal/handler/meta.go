@@ -71,9 +71,7 @@ func (s *server) metaHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	case audioExts[ext]:
 		if s.thumbs != nil {
-			if hash, err := s.thumbs.contentHash(abs, fi); err == nil {
-				meta.Duration = s.thumbs.audioDuration(hash, abs)
-			}
+			meta.Duration = s.thumbs.durationOf(abs, fi)
 		}
 	}
 

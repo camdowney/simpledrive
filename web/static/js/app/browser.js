@@ -241,9 +241,13 @@ const entryMediaHtml = (entry) => {
     // A vault song's length lives behind the server's meta endpoint, which can't read it.
     if (type !== "audio" || state.viewMode !== "grid" || state.inVault) return icon
     // Audio has no thumbnail, so in grid its duration pill rides the type icon.
-    const keys = ` data-meta="${encodeURIComponent(rel)}" data-durkey="${esc(rel + entryVer(entry))}"`
+    // A listing that already knows the length paints it now, with no fetch to queue behind thumbs.
+    const keys = entry.duration
+      ? ""
+      : ` data-meta="${encodeURIComponent(rel)}" data-durkey="${esc(rel + entryVer(entry))}"`
     const keyed = `<span class="file-icon"${keys}>${fileIcon(entry)}</span>`
-    return `<span class="thumb-wrap">${keyed}<span class="thumb-badge thumb-duration">00:00</span></span>`
+    const shown = entry.duration ? fmtDuration(entry.duration) : "00:00"
+    return `<span class="thumb-wrap">${keyed}<span class="thumb-badge thumb-duration">${shown}</span></span>`
   }
   let folderParams = ""
   if (type === "folder") {
@@ -388,10 +392,12 @@ const reconcileFiles = (container, wrapId, wrapClass, itemClass, itemHtml) => {
 const listItemHtml = (entry) => {
   const audio = !entry.isDir && fileType(entry.name) === "audio"
   const rel = relPath(entry.name)
-  // 00:00 holds the cell until the queue fills it.
-  const dur = audio
-    ? `<span class="file-duration" data-meta="${encodeURIComponent(rel)}" data-durkey="${esc(rel + entryVer(entry))}">00:00</span>`
-    : ""
+  // 00:00 holds the cell until the queue fills it; a length the listing knew needs no queue at all.
+  const dur = !audio
+    ? ""
+    : entry.duration
+      ? `<span class="file-duration">${fmtDuration(entry.duration)}</span>`
+      : `<span class="file-duration" data-meta="${encodeURIComponent(rel)}" data-durkey="${esc(rel + entryVer(entry))}">00:00</span>`
   return `
     <span class="file-media">${entryMediaHtml(entry)}</span>
     <span class="file-name">${esc(displayName(entry))}</span>

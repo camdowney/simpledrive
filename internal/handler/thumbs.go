@@ -120,6 +120,7 @@ type thumbCache struct {
 	hashes   map[string]hashedFile
 	previews map[string]folderPreview
 	sizes    map[string]sizedImage
+	durs     map[string]timedMedia
 }
 
 // hashedFile memoizes a file's content hash while it looks unchanged.
@@ -134,6 +135,13 @@ type sizedImage struct {
 	size  int64
 	mtime time.Time
 	w, h  int
+}
+
+// timedMedia memoizes a track's length while it looks unchanged; the sidecar costs a hash to reach.
+type timedMedia struct {
+	size     int64
+	mtime    time.Time
+	duration int
 }
 
 // folderPreview memoizes a folder's thumbnail child ("" = none) while its mtime holds.
@@ -157,6 +165,7 @@ func newThumbCache(dir string) *thumbCache {
 		hashes:   map[string]hashedFile{},
 		previews: map[string]folderPreview{},
 		sizes:    map[string]sizedImage{},
+		durs:     map[string]timedMedia{},
 	}
 }
 
@@ -536,6 +545,8 @@ func (c *thumbCache) contentHash(abs string, fi os.FileInfo) (string, error) {
 type durInfo struct {
 	Duration int    `json:"duration,omitempty"`
 	Taken    string `json:"taken,omitempty"`
+	// Probed marks the length attempt done: a sidecar written by another field means nothing here.
+	DurProbed bool `json:"durProbed,omitempty"`
 	// An S3 image's pixel size, kept from the download the thumb already paid for.
 	Width  int `json:"width,omitempty"`
 	Height int `json:"height,omitempty"`
@@ -730,21 +741,57 @@ func (c *thumbCache) probeDuration(src, cachePath string) {
 		return
 	}
 	if d := ffprobeDuration(c.ffprobe, src); d > 0 {
-		c.writeDur(strings.TrimSuffix(filepath.Base(cachePath), ".jpg"), durInfo{Duration: d})
+		hash := strings.TrimSuffix(filepath.Base(cachePath), ".jpg")
+		c.updateDur(hash, func(di *durInfo) { di.Duration, di.DurProbed = d, true })
 	}
+}
+
+// knownDuration is durationOf without the hash: what a listing can answer for free.
+func (c *thumbCache) knownDuration(abs string, fi os.FileInfo) (int, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	cached, ok := c.durs[abs]
+	if !ok || cached.size != fi.Size() || !cached.mtime.Equal(fi.ModTime()) {
+		return 0, false
+	}
+	return cached.duration, true
+}
+
+// durationOf reports a track's length, memoized: a listing asks it of every song it shows.
+func (c *thumbCache) durationOf(abs string, fi os.FileInfo) int {
+	if d, ok := c.knownDuration(abs, fi); ok {
+		return d
+	}
+	hash, err := c.contentHash(abs, fi)
+	if err != nil {
+		return 0
+	}
+	d := c.audioDuration(hash, abs)
+
+	c.mu.Lock()
+	if len(c.durs) >= maxHashMemo {
+		clear(c.durs)
+	}
+	c.durs[abs] = timedMedia{size: fi.Size(), mtime: fi.ModTime(), duration: d}
+	c.mu.Unlock()
+	return d
 }
 
 // audioDuration answers from the sidecar; a zero is sidecared too, so it isn't reprobed forever.
 func (c *thumbCache) audioDuration(hash, src string) int {
-	if di, ok := c.readDur(hash); ok {
+	if di, ok := c.readDur(hash); ok && di.DurProbed {
 		return di.Duration
 	}
 	if c.ffprobe == "" {
 		return 0
 	}
-	d := ffprobeDuration(c.ffprobe, src)
-	c.writeDur(hash, durInfo{Duration: d})
-	return d
+	// A folder of songs opens as a burst of asks; the ones sharing a file share its one probe.
+	v, _, _ := c.group.Do("dur:"+hash, func() (any, error) {
+		d := ffprobeDuration(c.ffprobe, src)
+		c.updateDur(hash, func(di *durInfo) { di.Duration, di.DurProbed = d, true })
+		return d, nil
+	})
+	return v.(int)
 }
 
 // ffprobeDuration reads a media file's or URL's length in whole seconds; 0 means unknown.

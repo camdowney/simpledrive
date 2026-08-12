@@ -98,6 +98,77 @@ func TestLoudnessHandlerCachesMeasurement(t *testing.T) {
 	}
 }
 
+// A measured track still owes the listing its length: both fields share one sidecar.
+func TestLoudnessScanKeepsDurationProbable(t *testing.T) {
+	bin := requireFFmpeg(t)
+	if _, err := exec.LookPath("ffprobe"); err != nil {
+		t.Skip("ffprobe not installed")
+	}
+	s, root := trashServer(t)
+	synthAudio(t, bin, filepath.Join(root, "song.mp3"), 10, "-6dB")
+
+	rec := httptest.NewRecorder()
+	s.loudnessHandler(rec, httptest.NewRequest(http.MethodGet, "/api/files/loudness?path=song.mp3", nil))
+	if rec.Code != 200 {
+		t.Fatalf("loudness: got %d (%s)", rec.Code, rec.Body)
+	}
+
+	rec = httptest.NewRecorder()
+	s.metaHandler(rec, httptest.NewRequest(http.MethodGet, "/api/files/meta?path=song.mp3", nil))
+	var m fileMeta
+	json.Unmarshal(rec.Body.Bytes(), &m)
+	if m.Duration != 10 {
+		t.Errorf("duration: got %ds, want 10s", m.Duration)
+	}
+}
+
+// A measured track rides in on the listing: a pill per row would be a fetch per row.
+func TestListingCarriesAudioDuration(t *testing.T) {
+	bin := requireFFmpeg(t)
+	if _, err := exec.LookPath("ffprobe"); err != nil {
+		t.Skip("ffprobe not installed")
+	}
+	s, root := trashServer(t)
+	song := filepath.Join(root, "song.mp3")
+	synthAudio(t, bin, song, 30, "-6dB")
+
+	list := func() entry {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		s.filesHandler(rec, httptest.NewRequest(http.MethodGet, "/api/files?path=/", nil))
+		if rec.Code != 200 {
+			t.Fatalf("listing: got %d (%s)", rec.Code, rec.Body)
+		}
+		var out struct {
+			Entries []entry `json:"entries"`
+		}
+		json.Unmarshal(rec.Body.Bytes(), &out)
+		for _, e := range out.Entries {
+			if e.Name == "song.mp3" {
+				return e
+			}
+		}
+		t.Fatal("song.mp3 missing from listing")
+		return entry{}
+	}
+
+	// Probing costs a hash of every file, so an unmeasured folder must not pay it inline.
+	if d := list().Duration; d != 0 {
+		t.Errorf("cold listing probed inline: duration %d", d)
+	}
+
+	fi, err := os.Stat(song)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := s.thumbs.durationOf(song, fi); d != 30 {
+		t.Fatalf("durationOf: got %ds, want 30s", d)
+	}
+	if d := list().Duration; d != 30 {
+		t.Errorf("warm listing duration: got %ds, want 30s", d)
+	}
+}
+
 // A non-audio file must answer with unity gain rather than an error the player has to handle.
 func TestLoudnessHandlerIgnoresNonAudio(t *testing.T) {
 	s, root := trashServer(t)
