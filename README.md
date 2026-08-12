@@ -46,8 +46,6 @@ go build -o simpledrive .
 ./simpledrive setup -username X -password Y -root-dir Z -addr :8080
 ```
 
-The password must be at least 12 characters.
-
 **3. Check that it starts:**
 
 ```sh

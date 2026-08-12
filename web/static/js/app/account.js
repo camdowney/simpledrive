@@ -5,8 +5,6 @@
 // Plaintext lives only in this tab: the server holds age ciphertext and never sees the passphrase.
 // The index becomes an ordinary listing and the blobs blob: URLs, so the usual views work.
 
-const VAULT_MIN_PASSPHRASE = 12
-
 // Marks a thumbnail whose bytes come from the index rather than a URL the browser could fetch.
 const VAULT_SRC = "vault:"
 
@@ -151,7 +149,7 @@ const showVaultPassphrase = (name) => {
     title: `Password for “${esc(name)}”`,
     extraHtml: `
       <p class="modal-note">
-        This password cannot be reset. ${VAULT_MIN_PASSPHRASE} characters minimum.
+        This password cannot be reset. 12+ characters recommended.
       </p>
       <input type="password" id="vault-new-pass" class="modal-text-input"
              placeholder="Password" autocomplete="new-password" />
@@ -167,8 +165,7 @@ const showVaultPassphrase = (name) => {
         err.textContent = msg
         err.classList.remove("hidden")
       }
-      if (pw.length < VAULT_MIN_PASSPHRASE)
-        return fail(`Use at least ${VAULT_MIN_PASSPHRASE} characters.`)
+      if (!pw) return fail("Enter a password.")
       if (pw !== confirm) return fail("The two passwords don't match.")
 
       const okBtn = document.getElementById("modal-ok")
