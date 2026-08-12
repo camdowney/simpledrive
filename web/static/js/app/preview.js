@@ -53,10 +53,14 @@ const fetchImageDims = (entry, path) => {
 
 // Both halves of a neighbour's stand-in, warmed on open: paging can outrun a thumb and its size.
 const warmNeighborStandIns = () => {
-  if (state.inVault) return
   for (const delta of [1, -1]) {
     const e = previewNeighbor(delta)
     if (!e || fileType(e.name) !== "image") continue
+    // A vault has no thumb to warm, and decrypting on the swipe is what makes the neighbour pop in.
+    if (state.inVault) {
+      vaultBlobUrl(e.id).catch(() => {})
+      continue
+    }
     const at = entryPath(e)
     const { thumb } = previewSrcs(e, at, e.name, "image")
     if (!thumb) continue
@@ -410,10 +414,11 @@ const setupPreviewSwipe = () => {
   // Unloaded until the drag is real, so a tap costs nothing.
   const peekHtml = (entry, type) => {
     const { thumb, original } = previewSrcs(entry, relPath(entry.name), entry.name, type)
-    // A vault neighbour has neither until it is decrypted, which a drag is no reason to do.
     if (type === "audio")
       return original ? `<audio controls preload="none" src="${esc(original)}"></audio>` : ""
-    return thumb ? `<img class="preview-placeholder" src="${esc(thumb)}" alt="">` : ""
+    // A vault image has no thumb URL: its own decrypted blob stands in, once there is one.
+    const src = state.inVault ? (type === "image" ? original : "") : thumb
+    return src ? `<img class="preview-placeholder" src="${esc(src)}" alt="">` : ""
   }
 
   // Thumbnails, from the same URLs the grid already loaded, so a drag reveals them without a fetch.
@@ -424,7 +429,8 @@ const setupPreviewSwipe = () => {
       if (!entry) continue
       const type = fileType(entry.name)
       const html = peekHtml(entry, type)
-      if (!html) continue
+      // A vault image mounts blank when its blob hasn't landed; sharpenPeeks fills the pane in.
+      if (!html && !(state.inVault && type === "image")) continue
       const pane = document.createElement("div")
       pane.className = "preview-peek"
       pane.dataset.delta = delta
@@ -433,7 +439,8 @@ const setupPreviewSwipe = () => {
       const standIn = pane.querySelector(".preview-placeholder")
       if (standIn) pinSmallStandIn(standIn)
       // A video's poster isn't pinned: the player fills the rect whatever the file's own size is.
-      if (standIn && type === "image")
+      // A vault's stand-in is the picture itself, and no server call can size a file it can't read.
+      if (standIn && type === "image" && !state.inVault)
         pinStandIn(standIn, entry, relPath(entry.name), DISPLAY_EXTS.includes(extOf(entry.name)))
       body.appendChild(pane)
     }
@@ -456,14 +463,21 @@ const setupPreviewSwipe = () => {
       }
       if (type !== "image") continue
       const { original, display } = previewSrcs(entry, relPath(entry.name), entry.name, "image")
-      const img = new Image()
-      const swap = () => {
-        // The gesture may have ended and cleared the peeks while this was in flight.
-        if (pane.isConnected && img.naturalWidth) pane.replaceChildren(img)
-      }
-      img.src = display || original
-      // decode() rejects some displayable images (huge JPEGs); naturalWidth spots real failures.
-      img.decode().then(swap, swap)
+      // A vault neighbour is decrypted here when the warm-up hasn't already held it.
+      const src = state.inVault ? vaultBlobUrl(entry.id) : Promise.resolve(display || original)
+      src.then(
+        (url) => {
+          const img = new Image()
+          const swap = () => {
+            // The gesture may have ended and cleared the peeks while this was in flight.
+            if (pane.isConnected && img.naturalWidth) pane.replaceChildren(img)
+          }
+          img.src = url
+          // decode() rejects some displayable images (huge JPEGs); naturalWidth spots real failures.
+          img.decode().then(swap, swap)
+        },
+        () => {}
+      )
     }
   }
 
