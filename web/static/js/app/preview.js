@@ -414,11 +414,16 @@ const setupPreviewSwipe = () => {
   // Unloaded until the drag is real, so a tap costs nothing.
   const peekHtml = (entry, type) => {
     const { thumb, original } = previewSrcs(entry, relPath(entry.name), entry.name, type)
-    if (type === "audio")
-      return original ? `<audio controls preload="none" src="${esc(original)}"></audio>` : ""
-    // A vault image has no thumb URL: its own decrypted blob stands in, once there is one.
-    const src = state.inVault ? (type === "image" ? original : "") : thumb
-    return src ? `<img class="preview-placeholder" src="${esc(src)}" alt="">` : ""
+    if (type === "audio" && original)
+      return `<audio controls preload="none" src="${esc(original)}"></audio>`
+    // A vault holds no thumb of any kind: a picture already decrypted stands in for itself, and
+    // everything else slides in as the spinner its own open is about to show anyway.
+    if (state.inVault)
+      return type === "image" && original
+        ? `<img class="preview-placeholder" src="${esc(original)}" alt="">`
+        : `<div class="preview-spinner"></div>`
+    if (type === "audio") return ""
+    return thumb ? `<img class="preview-placeholder" src="${esc(thumb)}" alt="">` : ""
   }
 
   // Thumbnails, from the same URLs the grid already loaded, so a drag reveals them without a fetch.
@@ -429,8 +434,7 @@ const setupPreviewSwipe = () => {
       if (!entry) continue
       const type = fileType(entry.name)
       const html = peekHtml(entry, type)
-      // A vault image mounts blank when its blob hasn't landed; sharpenPeeks fills the pane in.
-      if (!html && !(state.inVault && type === "image")) continue
+      if (!html) continue
       const pane = document.createElement("div")
       pane.className = "preview-peek"
       pane.dataset.delta = delta
@@ -452,6 +456,12 @@ const setupPreviewSwipe = () => {
       const entry = neighbor(Number(pane.dataset.delta))
       if (!entry) continue
       const type = fileType(entry.name)
+      // Only a picture can be painted into a vault's peek, but any file's bytes are worth starting
+      // on now: the open that lands the swipe then waits on a decryption already underway.
+      if (state.inVault && type !== "image") {
+        vaultBlobUrl(entry.id).catch(() => {})
+        continue
+      }
       // A song's peek fills its controls in, and warms the file the swipe is about to open.
       if (type === "audio") {
         const el = pane.querySelector("audio")
@@ -503,7 +513,10 @@ const setupPreviewSwipe = () => {
     await slide(`translateX(${offset}px)`, out)
     // Leaving the viewer mid-slide clears the flag; don't page back into a view we've closed.
     if (!state.previewSliding) return
-    previewNavigate(delta) // rebuilds the body, dropping the peeks with it
+    // Awaited: a vault decrypts on open, and letting the body home before it does would flash the
+    // picture we just slid off back onto the screen.
+    await previewNavigate(delta) // rebuilds the body, dropping the peeks with it
+    clearPeeks() // an open that failed left the body, and its peeks, as they were
     body.style.transform = ""
     state.previewSliding = false
   }
