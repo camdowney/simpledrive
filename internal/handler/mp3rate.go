@@ -94,7 +94,7 @@ func mp3Frame(r *bufio.Reader) (kbps, body int, err error) {
 	}
 }
 
-// mp3SkipHeaderFrame consumes the body just entered if it is a Xing/Info tag rather than audio.
+// mp3SkipHeaderFrame consumes the body just entered if it is a Xing/Info/VBRI tag, not audio.
 func mp3SkipHeaderFrame(r *bufio.Reader, body int) bool {
 	span := body
 	if span > 64 {
@@ -105,7 +105,7 @@ func mp3SkipHeaderFrame(r *bufio.Reader, body int) bool {
 		return false
 	}
 	for i := 0; i+4 <= len(head); i++ {
-		if s := string(head[i : i+4]); s == "Xing" || s == "Info" {
+		if s := string(head[i : i+4]); s == "Xing" || s == "Info" || s == "VBRI" {
 			r.Discard(body)
 			return true
 		}

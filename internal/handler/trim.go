@@ -91,9 +91,9 @@ func (s *server) trimAudioHandler(w http.ResponseWriter, r *http.Request) {
 // the player interpolates, so auditioning the source would audition a different cut than it makes.
 func (s *server) trimPreviewHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	start, errS := strconv.ParseFloat(q.Get("start"), 64)
-	end, errE := strconv.ParseFloat(q.Get("end"), 64)
-	if errS != nil || errE != nil || start < 0 || end-start < minTrimSeconds {
+	start, okS := parseSeconds(q.Get("start"))
+	end, okE := parseSeconds(q.Get("end"))
+	if !okS || !okE || start < 0 || end-start < minTrimSeconds {
 		jsonErr(w, "bad range", http.StatusBadRequest)
 		return
 	}
@@ -288,6 +288,12 @@ func trimFormat(src string) (string, error) {
 		return "ipod", nil
 	}
 	return "", &editError{"this audio format can't be trimmed", http.StatusUnsupportedMediaType}
+}
+
+// ParseFloat accepts "NaN" and "Inf", which every range comparison below then waves through.
+func parseSeconds(s string) (float64, bool) {
+	v, err := strconv.ParseFloat(s, 64)
+	return v, err == nil && !math.IsNaN(v) && !math.IsInf(v, 0)
 }
 
 // secondsArg formats a timestamp at millisecond precision, which is finer than a frame boundary.

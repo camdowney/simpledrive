@@ -280,11 +280,14 @@ func TestTrimPreviewRejectsBadRange(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "song.mp3"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	rec := httptest.NewRecorder()
-	s.trimPreviewHandler(rec, httptest.NewRequest(http.MethodGet,
-		"/api/media/trim-preview?path=song.mp3&start=7&end=4", nil))
-	if rec.Code != 400 {
-		t.Errorf("got %d, want 400", rec.Code)
+	// NaN fails every comparison, so it must be rejected by parsing rather than the range checks.
+	for _, span := range []string{"start=7&end=4", "start=NaN&end=9", "start=0&end=%2BInf"} {
+		rec := httptest.NewRecorder()
+		s.trimPreviewHandler(rec, httptest.NewRequest(http.MethodGet,
+			"/api/media/trim-preview?path=song.mp3&"+span, nil))
+		if rec.Code != 400 {
+			t.Errorf("%s: got %d, want 400", span, rec.Code)
+		}
 	}
 }
 
