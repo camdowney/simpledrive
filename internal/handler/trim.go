@@ -141,16 +141,17 @@ func trimAudio(bin, src, dst string, start, end float64) error {
 	defer cancel()
 
 	lead := math.Max(0, start-trimSeekLead)
-	cmd := exec.CommandContext(ctx, bin, "-nostdin", "-v", "error",
+	args := []string{"-nostdin", "-v", "error",
 		// -ss ahead of -i seeks by index instead of decoding up to the mark.
 		"-ss", secondsArg(lead), "-i", src,
 		// An index seek lands on a container boundary — an Ogg page is nearly a second — so the
 		// mark itself is placed by a second -ss, which drops packets after the coarse landing.
-		"-ss", secondsArg(start-lead),
+		"-ss", secondsArg(start - lead),
 		// A duration is unambiguous; -to shifts meaning relative to an input seek across versions.
-		"-t", secondsArg(end-start),
-		"-map", "0:a", "-c:a", trimCodec(format), "-map_metadata", "0",
-		"-f", format, "-y", dst)
+		"-t", secondsArg(end - start),
+		"-map", "0:a", "-c:a", trimCodec(format), "-map_metadata", "0"}
+	args = append(args, trimMuxerArgs(format, start)...)
+	cmd := exec.CommandContext(ctx, bin, append(args, "-f", format, "-y", dst)...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -161,6 +162,14 @@ func trimAudio(bin, src, dst string, start, end float64) error {
 	}
 	if fi, err := os.Stat(dst); err != nil || fi.Size() == 0 {
 		return &editError{"the trim produced an empty file", http.StatusUnsupportedMediaType}
+	}
+	return nil
+}
+
+// Firefox opens a mid-file cut on a burst unless the muxer's Xing frame goes; from 0 it's safe.
+func trimMuxerArgs(format string, start float64) []string {
+	if format == "mp3" && start > 0 {
+		return []string{"-write_xing", "0"}
 	}
 	return nil
 }
