@@ -288,6 +288,114 @@ func TestTrimPreviewRejectsBadRange(t *testing.T) {
 	}
 }
 
+// synthVBRAudio writes a file whose bitrate really varies: a tone costs far fewer bits than noise.
+func synthVBRAudio(t *testing.T, bin, path string, seconds int) {
+	t.Helper()
+	half := strconv.Itoa(seconds / 2)
+	out, err := exec.Command(bin, "-v", "error",
+		"-f", "lavfi", "-i", "sine=frequency=440:duration="+half,
+		"-f", "lavfi", "-i", "anoisesrc=duration="+half+":color=white",
+		"-filter_complex", "[0][1]concat=n=2:v=0:a=1",
+		"-c:a", "libmp3lame", "-q:a", "2", "-y", path).CombinedOutput()
+	if err != nil {
+		t.Skipf("cannot synthesize VBR test audio: %v (%s)", err, out)
+	}
+}
+
+func TestMp3BitratesSeparatesConstantFromVariable(t *testing.T) {
+	bin := requireFFmpeg(t)
+	dir := t.TempDir()
+	cbr := filepath.Join(dir, "cbr.mp3")
+	vbr := filepath.Join(dir, "vbr.mp3")
+	synthAudio(t, bin, cbr, 12, "0dB")
+	synthVBRAudio(t, bin, vbr, 12)
+
+	if constant, mean, ok := mp3Bitrates(cbr); !ok || !constant || mean != 128 {
+		t.Errorf("cbr: got constant=%v mean=%d ok=%v, want true/128/true", constant, mean, ok)
+	}
+	if constant, _, ok := mp3Bitrates(vbr); !ok || constant {
+		t.Errorf("vbr: got constant=%v ok=%v, want false/true", constant, ok)
+	}
+	if _, _, ok := mp3Bitrates(filepath.Join(dir, "nope.mp3")); ok {
+		t.Error("a missing file parsed as mp3")
+	}
+}
+
+func TestSavedTrimPlanKeepsLengthReadable(t *testing.T) {
+	bin := requireFFmpeg(t)
+	dir := t.TempDir()
+	cbr := filepath.Join(dir, "cbr.mp3")
+	vbr := filepath.Join(dir, "vbr.mp3")
+	synthAudio(t, bin, cbr, 12, "0dB")
+	synthVBRAudio(t, bin, vbr, 12)
+
+	cases := []struct {
+		name      string
+		src       string
+		start     float64
+		codec     string
+		muxerHead string
+	}{
+		{"cbr mid-file", cbr, 4, "copy", "-write_xing"},
+		{"cbr from the start", cbr, 0, "copy", ""},
+		{"vbr mid-file", vbr, 4, "libmp3lame", "-q:a"},
+		{"vbr from the start", vbr, 0, "copy", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			codec, muxer := savedTrimPlan(c.src, "mp3", c.start)
+			if codec != c.codec {
+				t.Errorf("codec: got %q, want %q", codec, c.codec)
+			}
+			head := ""
+			if len(muxer) > 0 {
+				head = muxer[0]
+			}
+			if head != c.muxerHead {
+				t.Errorf("muxer: got %v, want leading %q", muxer, c.muxerHead)
+			}
+		})
+	}
+}
+
+// A VBR cut read as longer than it is lets a seek land past the end and skip the track.
+func TestTrimAudioDeclaresTrueLengthForVariableBitrate(t *testing.T) {
+	bin := requireFFmpeg(t)
+	probe, err := exec.LookPath("ffprobe")
+	if err != nil {
+		t.Skip("ffprobe not installed")
+	}
+	dir := t.TempDir()
+	src := filepath.Join(dir, "vbr.mp3")
+	dst := filepath.Join(dir, "cut.mp3")
+	synthVBRAudio(t, bin, src, 12)
+	if err := trimAudio(bin, src, dst, 4, 10); err != nil {
+		t.Fatal(err)
+	}
+
+	declared := probeFloat(t, probe, dst, "format=duration")
+	frames := probeFloat(t, probe, dst, "stream=nb_read_frames", "-count_frames", "-select_streams", "a:0")
+	real := frames * 1152 / probeFloat(t, probe, dst, "stream=sample_rate", "-select_streams", "a:0")
+	if diff := declared - real; diff > 0.15 || diff < -0.15 {
+		t.Errorf("declared %.3fs but holds %.3fs of frames", declared, real)
+	}
+}
+
+func probeFloat(t *testing.T, probe, path, entries string, extra ...string) float64 {
+	t.Helper()
+	args := append([]string{"-v", "error"}, extra...)
+	args = append(args, "-show_entries", entries, "-of", "default=nw=1:nk=1", path)
+	out, err := exec.Command(probe, args...).Output()
+	if err != nil {
+		t.Fatalf("ffprobe %s: %v", entries, err)
+	}
+	v, err := strconv.ParseFloat(strings.TrimSpace(strings.Split(strings.TrimSpace(string(out)), "\n")[0]), 64)
+	if err != nil {
+		t.Fatalf("ffprobe %s: %q", entries, out)
+	}
+	return v
+}
+
 func TestTranscodeVideoShrinksAndConvertsToH264(t *testing.T) {
 	bin := requireFFmpeg(t)
 	probe, err := exec.LookPath("ffprobe")

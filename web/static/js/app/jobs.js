@@ -170,6 +170,7 @@ const showTrimAudio = (path, name) => {
   let clipTo = -1 // end mark the loaded clip was cut for; -1 whenever the playhead or span moves
   let raf = null
   let dragging = null
+  let warmTimer = null
 
   const closeModal = showExtraModal({
     title: `Trim “${name}”`,
@@ -277,6 +278,7 @@ const showTrimAudio = (path, name) => {
     cursor = Math.min(top, Math.max(start, t))
     clipTo = -1 // the loaded clip started somewhere the playhead no longer is
     paint()
+    warmClip()
   }
 
   const setMark = (mark, at, { park = true } = {}) => {
@@ -329,17 +331,28 @@ const showTrimAudio = (path, name) => {
     `/api/media/trim-preview?path=${encodeURIComponent(path)}` +
     `&start=${from.toFixed(3)}&end=${to.toFixed(3)}`
 
+  // Cutting the clip takes the press to first note with it, so a settled playhead starts it early.
+  const loadClip = () => {
+    clipFrom = cursor
+    clipTo = end
+    clip.src = clipUrl(cursor, end)
+  }
+
+  // Waits on a settled playhead: a drag warms where it lands, and an untouched one warms nothing.
+  const warmClip = () => {
+    clearTimeout(warmTimer)
+    warmTimer = setTimeout(() => {
+      if (clip.paused && cursor > 0 && clipTo !== end && end - cursor >= 0.1) loadClip()
+    }, 350)
+  }
+
   const togglePlay = () => {
     if (!clip.paused) return pausePlayback()
     // Sitting on the cutoff, so back up and audition it rather than play nothing.
     if (cursor >= end - 0.05) seek(Math.max(start, end - TRIM_TAIL_PREVIEW))
     if (end - cursor < 0.1) return
     // Cut by the same code the trim runs, so the audition is the output, not an estimate of it.
-    if (clipTo !== end) {
-      clipFrom = cursor
-      clipTo = end
-      clip.src = clipUrl(cursor, end)
-    }
+    if (clipTo !== end) loadClip()
     clip.play().then(syncPlayIcon, syncPlayIcon)
     if (!raf) raf = requestAnimationFrame(follow)
   }
@@ -422,6 +435,7 @@ const showTrimAudio = (path, name) => {
 
   // Closing has to silence detached elements nothing else holds a handle to.
   const dismiss = () => {
+    clearTimeout(warmTimer)
     pausePlayback()
     for (const el of [audio, clip]) {
       el.removeAttribute("src")
