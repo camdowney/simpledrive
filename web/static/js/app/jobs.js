@@ -171,6 +171,7 @@ const showTrimAudio = (path, name) => {
   let raf = null
   let dragging = null
   let warmTimer = null
+  let judged = false // errors hold back until a mark field first blurs, then track every edit
 
   const closeModal = showExtraModal({
     title: `Trim “${name}”`,
@@ -205,6 +206,7 @@ const showTrimAudio = (path, name) => {
           </label>
           <span class="trim-length" id="trim-length"></span>
         </div>
+        <span class="trim-error" id="trim-error" hidden>The end must come after the start</span>
         ${replaceRowHtml("Replace the original instead of saving a copy")}
       </div>`,
     onOk: async () => {
@@ -233,6 +235,7 @@ const showTrimAudio = (path, name) => {
   const startInp = extra.querySelector(".trim-start")
   const endInp = extra.querySelector(".trim-end")
   const lengthEl = extra.querySelector("#trim-length")
+  const errorEl = extra.querySelector("#trim-error")
   const scrub = extra.querySelector("#trim-scrub")
   const sel = extra.querySelector("#trim-sel")
   const head = extra.querySelector("#trim-playhead")
@@ -262,12 +265,10 @@ const showTrimAudio = (path, name) => {
     // No duration yet from the listing: an empty span is loading, not a bad selection.
     const pending = duration <= 0
     const ok = end > start
-    lengthEl.textContent = pending
-      ? ""
-      : ok
-        ? `Keeping ${fmtTrimTime(end - start)}`
-        : "The end must come after the start"
-    lengthEl.classList.toggle("invalid", !pending && !ok)
+    // The song bounds the cut: an end typed past it keeps only what is really there.
+    const kept = Math.max(0, Math.min(end, duration) - start)
+    lengthEl.textContent = pending || !ok ? "" : `Keeping ${fmtTrimTime(kept)}`
+    errorEl.hidden = pending || ok || !judged
     okBtn.disabled = pending || !ok
     paint()
   }
@@ -430,6 +431,11 @@ const showTrimAudio = (path, name) => {
 
   startInp.addEventListener("input", () => readMarks("start"))
   endInp.addEventListener("input", () => readMarks("end"))
+  const judge = () => {
+    judged = true
+    syncLength()
+  }
+  for (const el of [startInp, endInp]) el.addEventListener("blur", judge)
   // The viewer pages songs on arrow keys, which would swap the file out from under the dialog.
   for (const el of [startInp, endInp]) el.addEventListener("keydown", (ev) => ev.stopPropagation())
 

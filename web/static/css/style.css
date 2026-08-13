@@ -1584,9 +1584,9 @@ body.dragging {
 }
 
 .modal h2 {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 /* margin-top owns the gap above the actions; content margins ≤20px collapse into it. */
@@ -3952,7 +3952,8 @@ ul.tui-colorpicker-clearfix li {
   text-align: right;
 }
 
-.trim-length.invalid {
+.trim-error {
+  font-size: 12px;
   color: var(--danger);
 }
 
