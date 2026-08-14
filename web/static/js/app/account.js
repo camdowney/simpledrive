@@ -68,6 +68,9 @@ const vaultSubOf = (path) => {
 
 const vaultSub = () => vaultSubOf(state.currentPath)
 
+// Set only across the repaint that locking triggers, so the unlock panel knows how it got there.
+let lockingVault = false
+
 // Locking drops every decrypted view, so it leaves the browser at the vault's own folder — the
 // one path inside it the server can still list.
 const lockVault = (message) => {
@@ -81,7 +84,9 @@ const lockVault = (message) => {
   clearSelection()
   renderBreadcrumb()
   updateVaultToggle()
+  lockingVault = true
   renderFiles()
+  lockingVault = false
   if (message) toast(message)
 }
 
@@ -106,7 +111,8 @@ const renderVaultLocked = (container) => {
 
   const input = panel.querySelector("#vault-pass")
   const err = panel.querySelector("#vault-error")
-  input.focus()
+  // Someone who just locked a vault on a phone wants the keyboard gone, not thrown straight back.
+  if (!(lockingVault && matchMedia("(pointer: coarse)").matches)) input.focus()
   panel.querySelector("form").addEventListener("submit", async (e) => {
     e.preventDefault()
     const secret = input.value
