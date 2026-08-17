@@ -95,6 +95,8 @@ const init = async () => {
   document.querySelectorAll(".js-home").forEach((el) => {
     el.addEventListener("click", (e) => {
       e.preventDefault()
+      // The storage tab carries one of these too, and home means the folder, not just the path.
+      showBrowser({ pushHash: false })
       navigate(homePath())
     })
   })
@@ -290,6 +292,9 @@ const init = async () => {
     el.addEventListener("click", showStorage)
   })
 
+  document.getElementById("tab-files").addEventListener("click", () => showBrowser())
+  document.getElementById("tab-storage").addEventListener("click", showStorageView)
+
   document.getElementById("options-tags-btn").addEventListener("click", () => {
     const [entry] = getSelectedEntries()
     if (entry) showTagsDialog(entry)
@@ -307,6 +312,8 @@ const init = async () => {
   document.getElementById("files-container").addEventListener("click", (e) => {
     if (!e.target.closest(".file-item, .file-card")) clearSelection()
   })
+
+  wirePullToRefresh()
 
   document.getElementById("view-toggle-btn").addEventListener("click", () => {
     setViewMode(state.viewMode === "grid" ? "list" : "grid")

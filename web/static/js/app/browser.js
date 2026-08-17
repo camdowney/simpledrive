@@ -1156,3 +1156,86 @@ const beginGesture = (e, el, entry) => {
   window.addEventListener("pointerup", onGestureUp)
   window.addEventListener("pointercancel", onGestureCancel)
 }
+
+// ─── Pull to refresh ──────────────────────────────────────────────────────────
+
+const PULL_TRIGGER = 64
+// Asymptote: past the trigger the list keeps following the finger, but never runs away with it.
+const PULL_MAX = 96
+// A cached or vault folder answers instantly, and a spinner that only flashes reads as a glitch.
+const PULL_MIN_SPIN = 350
+
+let pull = null
+let pullRunning = false
+
+const paintPull = (y, animate) => {
+  const list = document.getElementById("files-container")
+  const spinner = document.getElementById("pull-spinner")
+  list.classList.toggle("settling", !!animate)
+  spinner.classList.toggle("settling", !!animate)
+  list.style.transform = y ? `translateY(${y}px)` : ""
+  spinner.style.transform = `translateY(${y}px) rotate(${y * 3}deg)`
+  spinner.style.opacity = Math.min(1, y / PULL_TRIGGER)
+}
+
+const runPullRefresh = async () => {
+  pullRunning = true
+  document.getElementById("pull-spinner").classList.add("spinning")
+  paintPull(PULL_TRIGGER, true)
+  const started = Date.now()
+  try {
+    await navigate(state.currentPath, { pushHash: false })
+  } catch {}
+  const left = PULL_MIN_SPIN - (Date.now() - started)
+  if (left > 0) await new Promise((done) => setTimeout(done, left))
+  document.getElementById("pull-spinner").classList.remove("spinning")
+  paintPull(0, true)
+  pullRunning = false
+}
+
+const onPullStart = (e) => {
+  if (pullRunning || e.touches.length !== 1) return
+  if (document.getElementById("files-container").scrollTop > 0) return
+  const t = e.touches[0]
+  pull = { x0: t.clientX, y0: t.clientY, y: 0, active: false }
+}
+
+const onPullMove = (e) => {
+  if (!pull) return
+  // A long-press drag owns the finger once it takes it; two things must not move at once.
+  if (drag) {
+    pull = null
+    return
+  }
+  const t = e.touches[0]
+  const dy = t.clientY - pull.y0
+  if (!pull.active) {
+    // Upward or sideways: the finger is scrolling or swiping, and this gesture was never a pull.
+    if (dy <= 0 || Math.abs(t.clientX - pull.x0) > dy) {
+      pull = null
+      return
+    }
+    if (dy < 10) return
+    pull.active = true
+  }
+  e.preventDefault()
+  pull.y = PULL_MAX * (1 - Math.exp(-dy / PULL_MAX))
+  paintPull(pull.y, false)
+}
+
+const onPullEnd = () => {
+  if (!pull) return
+  const { active, y } = pull
+  pull = null
+  if (!active) return
+  if (y >= PULL_TRIGGER) runPullRefresh()
+  else paintPull(0, true)
+}
+
+const wirePullToRefresh = () => {
+  const list = document.getElementById("files-container")
+  list.addEventListener("touchstart", onPullStart, { passive: true })
+  list.addEventListener("touchmove", onPullMove, { passive: false })
+  list.addEventListener("touchend", onPullEnd)
+  list.addEventListener("touchcancel", onPullEnd)
+}

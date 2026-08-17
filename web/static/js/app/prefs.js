@@ -30,32 +30,26 @@ const typeSegHtml = (t, use, total) =>
     : `<span class="storage-seg storage-cat-${t.key}"
          style="width:${(use.bytes / total) * 100}%"></span>`
 
-const showStorage = () => {
-  const cleanup = showExtraModal({
-    title: "Storage",
-    okLabel: "Close",
-    closeOnly: true,
-    okClass: "btn btn-subtle",
-    extraHtml: `
-    <div class="storage">
-      <div class="storage-meter" id="storage-meter">
-        <div class="storage-bar"></div>
-        <p class="storage-line">Reading the disk…</p>
-      </div>
-      <p class="storage-heading">By type</p>
-      <div class="storage-bar storage-types" id="storage-types"></div>
-      <div id="storage-legend">
-        ${STORAGE_TYPES.map((t) => typeRowHtml(t, null, 0)).join("")}
-      </div>
-      <p class="storage-summary" id="storage-note"></p>
-    </div>`,
-    onOk: () => cleanup(),
-  })
+// Classes, not ids: the dialog and the installed tab each hold a copy of this.
+const storageHtml = () => `
+  <div class="storage-meter">
+    <div class="storage-bar"></div>
+    <p class="storage-line">Reading the disk…</p>
+  </div>
+  <p class="storage-heading">By type</p>
+  <div class="storage-bar storage-types"></div>
+  <div class="storage-legend">
+    ${STORAGE_TYPES.map((t) => typeRowHtml(t, null, 0)).join("")}
+  </div>
+  <p class="storage-summary"></p>`
 
-  const meterEl = document.getElementById("storage-meter")
-  const typesEl = document.getElementById("storage-types")
-  const legendEl = document.getElementById("storage-legend")
-  const noteEl = document.getElementById("storage-note")
+const fillStorage = (root) => {
+  root.innerHTML = storageHtml()
+
+  const meterEl = root.querySelector(".storage-meter")
+  const typesEl = root.querySelector(".storage-types")
+  const legendEl = root.querySelector(".storage-legend")
+  const noteEl = root.querySelector(".storage-summary")
 
   api("GET", "/api/usage")
     .then((u) => {
@@ -95,6 +89,18 @@ const showStorage = () => {
     .catch((e) => {
       noteEl.textContent = e.message
     })
+}
+
+const showStorage = () => {
+  const cleanup = showExtraModal({
+    title: "Storage",
+    okLabel: "Close",
+    closeOnly: true,
+    okClass: "btn btn-subtle",
+    extraHtml: `<div class="storage"></div>`,
+    onOk: () => cleanup(),
+  })
+  fillStorage(document.querySelector("#modal-extra .storage"))
 }
 
 // Credentials are write-only: POSTed once, stored server-side, never returned by /api/mounts.
@@ -186,11 +192,25 @@ const setShowHidden = (show) => {
 
 const systemTheme = matchMedia("(prefers-color-scheme: dark)")
 
+// Installed, iOS paints the status bar from this, so it has to match whatever sits directly below.
+const statusBarColor = () => {
+  const shown = (id) => !document.getElementById(id).classList.contains("hidden")
+  const dark = document.documentElement.dataset.theme === "dark"
+  // Ordered by what owns the top of the screen: the login page's ground, the viewer's black,
+  // then --surface, which every view's top bar is painted in.
+  if (!shown("app-view")) return dark ? "#16171a" : "#f5f5f5"
+  if (shown("preview-view")) return "#111"
+  return dark ? "#202226" : "#ffffff"
+}
+
+const paintStatusBar = () => {
+  document.getElementById("theme-color").content = statusBarColor()
+}
+
 // A null state.theme follows the OS; boot.js applies the same resolution before first paint.
 const applyTheme = () => {
-  const theme = state.theme || (systemTheme.matches ? "dark" : "light")
-  document.documentElement.dataset.theme = theme
-  document.getElementById("theme-color").content = theme === "dark" ? "#16171a" : "#f5f5f5"
+  document.documentElement.dataset.theme = state.theme || (systemTheme.matches ? "dark" : "light")
+  paintStatusBar()
 }
 
 const setTheme = (theme) => {

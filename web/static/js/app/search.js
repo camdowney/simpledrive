@@ -228,6 +228,7 @@ const showLogin = () => {
   document.getElementById("login-view").classList.remove("hidden")
   document.getElementById("app-view").classList.add("hidden")
   teardownPreview()
+  paintStatusBar()
 }
 
 const showShareGone = () => {
@@ -286,9 +287,7 @@ const showApp = () => {
 const ensureView = () => {
   const hidden = (id) => document.getElementById(id).classList.contains("hidden")
   if (hidden("app-view")) return
-  if (hidden("browser-view") && hidden("editor-view") && hidden("preview-view")) {
-    showBrowser({ pushHash: false })
-  }
+  if (VIEWS.every(hidden)) showBrowser({ pushHash: false })
 }
 
 // Decoded current hash, defaulting to home; location.hash is percent-encoded.
@@ -372,10 +371,27 @@ const teardownPreview = () => {
     .classList.remove("chrome-hidden", "has-embed", "has-photo")
 }
 
+const VIEWS = ["browser-view", "storage-view", "editor-view", "preview-view"]
+
+// Only the two top-level screens are tabs; a file opened from one takes the whole screen.
+const TAB_OF = { "browser-view": "tab-files", "storage-view": "tab-storage" }
+
+const showOnly = (id) => {
+  for (const v of VIEWS) document.getElementById(v).classList.toggle("hidden", v !== id)
+  const tab = TAB_OF[id]
+  // A share link's visitor has no storage to look at, so the bar would be one tab wide.
+  document.getElementById("tabbar").classList.toggle("hidden", !tab || !!state.share)
+  for (const t of Object.values(TAB_OF)) {
+    const el = document.getElementById(t)
+    el.classList.toggle("active", t === tab)
+    if (t === tab) el.setAttribute("aria-current", "page")
+    else el.removeAttribute("aria-current")
+  }
+  paintStatusBar()
+}
+
 const showBrowser = ({ pushHash = true } = {}) => {
-  document.getElementById("browser-view").classList.remove("hidden")
-  document.getElementById("editor-view").classList.add("hidden")
-  document.getElementById("preview-view").classList.add("hidden")
+  showOnly("browser-view")
   teardownPreview()
   if (state.mdeInstance) {
     state.mdeInstance.destroy()
@@ -385,16 +401,19 @@ const showBrowser = ({ pushHash = true } = {}) => {
 }
 
 const showEditorView = () => {
-  document.getElementById("browser-view").classList.add("hidden")
-  document.getElementById("editor-view").classList.remove("hidden")
-  document.getElementById("preview-view").classList.add("hidden")
+  showOnly("editor-view")
   teardownPreview()
 }
 
 const showPreviewView = () => {
-  document.getElementById("browser-view").classList.add("hidden")
-  document.getElementById("editor-view").classList.add("hidden")
-  document.getElementById("preview-view").classList.remove("hidden")
+  showOnly("preview-view")
+}
+
+// Re-read on every visit: the walk is the same cost the dialog paid each time it opened.
+const showStorageView = () => {
+  showOnly("storage-view")
+  teardownPreview()
+  fillStorage(document.getElementById("storage-root"))
 }
 
 // ─── Breadcrumb ───────────────────────────────────────────────────────────────

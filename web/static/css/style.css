@@ -43,6 +43,10 @@
   --z-toast: 500;
   --page-px: 14px;
   --btn-px: 12px;
+  /* Named so a bar's bleed-through margin and the padding it grows back through can't drift apart. */
+  --safe-right: env(safe-area-inset-right);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
   --editor-max-w: 740px;
   --transition: 0.1s;
 }
@@ -116,7 +120,8 @@ body {
   justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: 0 var(--page-px);
+  padding: 0 calc(var(--page-px) + var(--safe-right)) var(--safe-bottom)
+    calc(var(--page-px) + var(--safe-left));
   position: relative;
 }
 
@@ -149,9 +154,10 @@ html.boot-login #login-view {
   display: none;
 }
 
+/* Absolute, so it sits off the padding box and the view's own bottom inset never reaches it. */
 .login-footer {
   position: absolute;
-  bottom: 14px;
+  bottom: calc(14px + var(--safe-bottom));
   left: 0;
   right: 0;
   display: flex;
@@ -386,12 +392,14 @@ html.boot-login #login-view {
 }
 
 /* ── Layout ── */
+/* Reserved, not ceded: iOS otherwise fills the home-indicator strip from the manifest's colour. */
 #app-view {
   display: flex;
   flex-direction: column;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+  padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
 }
 
 #browser-view {
@@ -399,6 +407,49 @@ html.boot-login #login-view {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+/* ── Tab bar ── */
+/* A flex sibling of the views rather than fixed, so the scrollers shrink and nothing hides under it. */
+/* Grows back through #app-view's reserved inset: the surface reaches the edge, the labels don't. */
+.tabbar {
+  display: none;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  margin: 0 calc(-1 * var(--safe-right)) calc(-1 * var(--safe-bottom)) calc(-1 * var(--safe-left));
+  padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+
+html.installed .tabbar {
+  display: flex;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 0 11px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--transition);
+}
+
+.tab-item.active {
+  color: var(--accent);
+}
+
+.tab-icon {
+  width: 22px;
+  height: 22px;
 }
 
 .topbar {
@@ -931,6 +982,64 @@ html.boot-login #login-view {
 
 /* ── File list ── */
 /* Rows: the vault bar, then the listing — without this both auto rows split the free height. */
+/* The list slides down off its own top edge, so what it uncovers has to be clipped to here. */
+.files-scroll {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Parked above the list's top edge; the pull is what brings it into view. */
+.pull-spinner {
+  position: absolute;
+  top: -38px;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  margin-left: -15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-popover);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pull-spinner-arc {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  /* Three-quarters of the r=9 circumference; the gap is what makes the spin legible. */
+  stroke-dasharray: 42 15;
+}
+
+.pull-spinner.spinning .pull-spinner-arc {
+  animation: pull-spin 0.7s linear infinite;
+}
+
+@keyframes pull-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Only the release is animated; under the finger the list has to track it exactly. */
+.files-container.settling,
+.pull-spinner.settling {
+  transition:
+    transform 0.2s ease-out,
+    opacity 0.2s ease-out;
+}
+
 .files-container {
   flex: 1;
   min-height: 0;
@@ -4383,6 +4492,61 @@ ul.tui-colorpicker-clearfix li {
 }
 
 /* ─── Storage ──────────────────────────────────────────────────────────────── */
+
+/* Installed, the tab bar reaches this; the header button would be a second way to the same screen. */
+html.installed .js-storage {
+  display: none;
+}
+
+#storage-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Padding and children mirror .breadcrumb-row: the logo and the actions must not shift on a tab switch. */
+.storage-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  padding: 8px var(--page-px) 0;
+}
+
+.storage-logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.storage-view-title {
+  margin-right: auto;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.storage-actions {
+  margin-right: calc(-1 * var(--btn-px));
+}
+
+.storage-actions .btn-label {
+  display: none;
+}
+
+.storage-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px var(--page-px) 24px;
+}
+
+/* Matches .file-list, so the two tabs hold the same column on a wide screen. */
+.storage-panel .storage {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+}
 
 /* Holds the loaded bar + line's height while reading, so the modal opens at its final size. */
 .storage-meter {

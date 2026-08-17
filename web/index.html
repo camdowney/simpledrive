@@ -5,7 +5,7 @@
     <!-- Only a static max scale stops iOS zooming into focused fields; toggling it on focus is too late. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <title>Drive</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
@@ -14,7 +14,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Drive" />
     <!-- boot.js overwrites this to match the theme it resolves, before the bar is ever painted. -->
-    <meta name="theme-color" id="theme-color" content="#16171a" />
+    <meta name="theme-color" id="theme-color" content="#202226" />
     <link rel="stylesheet" href="/static/css/style.css" />
     <link rel="stylesheet" href="/static/vendor/toastui-editor.min.css" />
     <link rel="stylesheet" href="/static/vendor/tui-color-picker.min.css" />
@@ -905,20 +905,27 @@
             </div>
           </div>
         </div>
-        <div class="files-container" id="files-container">
-          <div class="vault-bar hidden" id="vault-bar">
-            <span class="vault-bar-state">
-              <svg class="btn-icon" aria-hidden="true">
-                <use href="#icon-unlock" />
-              </svg>
-              Unlocked
-            </span>
-            <button class="btn btn-secondary" id="vault-lock-btn" title="Lock this vault">
-              <svg class="btn-icon" aria-hidden="true">
-                <use href="#icon-lock" />
-              </svg>
-              <span class="btn-label">Lock</span>
-            </button>
+        <div class="files-scroll">
+          <div class="pull-spinner" id="pull-spinner" aria-hidden="true">
+            <svg class="pull-spinner-arc" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" />
+            </svg>
+          </div>
+          <div class="files-container" id="files-container">
+            <div class="vault-bar hidden" id="vault-bar">
+              <span class="vault-bar-state">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-unlock" />
+                </svg>
+                Unlocked
+              </span>
+              <button class="btn btn-secondary" id="vault-lock-btn" title="Lock this vault">
+                <svg class="btn-icon" aria-hidden="true">
+                  <use href="#icon-lock" />
+                </svg>
+                <span class="btn-label">Lock</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1121,6 +1128,54 @@
         </div>
         <div class="preview-tagbar" id="preview-tagbar"></div>
       </div>
+
+      <!-- Storage view: the dialog's body as a screen of its own, for the tab bar -->
+      <div id="storage-view" class="hidden">
+        <div class="storage-topbar">
+          <a class="storage-logo js-home" href="#" aria-label="Home">
+            <img src="/static/favicon.svg" alt="" width="30" height="30" />
+          </a>
+          <span class="storage-view-title">Storage</span>
+          <div class="header-actions storage-actions">
+            <button
+              class="btn btn-ghost theme-toggle js-theme-toggle"
+              title="Toggle theme"
+              aria-label="Toggle theme"
+            >
+              <svg class="btn-icon theme-icon-moon" aria-hidden="true">
+                <use href="#icon-moon" />
+              </svg>
+              <svg class="btn-icon theme-icon-sun" aria-hidden="true">
+                <use href="#icon-sun" />
+              </svg>
+            </button>
+            <button class="btn btn-ghost js-logout" title="Sign out" aria-label="Sign out">
+              <svg class="btn-icon" aria-hidden="true">
+                <use href="#icon-log-out" />
+              </svg>
+              <span class="btn-label">Sign out</span>
+            </button>
+          </div>
+        </div>
+        <div class="storage-panel">
+          <div class="storage" id="storage-root"></div>
+        </div>
+      </div>
+
+      <nav class="tabbar hidden" id="tabbar" aria-label="Sections">
+        <button class="tab-item" id="tab-files">
+          <svg class="tab-icon" aria-hidden="true">
+            <use href="#icon-folder" />
+          </svg>
+          Files
+        </button>
+        <button class="tab-item" id="tab-storage">
+          <svg class="tab-icon" aria-hidden="true">
+            <use href="#icon-hard-drive" />
+          </svg>
+          Storage
+        </button>
+      </nav>
     </div>
 
     <!-- Modal -->

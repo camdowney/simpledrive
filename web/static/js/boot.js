@@ -6,6 +6,10 @@ if (
 )
   document.documentElement.classList.add("boot-login")
 
+// Installed, a tab bar stands in for the header's storage button; set before the header paints.
+if (matchMedia("(display-mode: standalone)").matches || navigator.standalone)
+  document.documentElement.classList.add("installed")
+
 // Resolved here rather than in app.js so the first paint isn't a flash of the wrong theme.
 document.documentElement.dataset.theme = (() => {
   let saved
@@ -17,5 +21,6 @@ document.documentElement.dataset.theme = (() => {
 })()
 
 // Installed, the status bar is painted from this; it has to be right before the bar first shows.
+// --surface, not --bg: the bar butts against a view's top bar, and a seam there reads as a gap.
 document.getElementById("theme-color").content =
-  document.documentElement.dataset.theme === "dark" ? "#16171a" : "#f5f5f5"
+  document.documentElement.dataset.theme === "dark" ? "#202226" : "#ffffff"
