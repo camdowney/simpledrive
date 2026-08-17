@@ -626,7 +626,7 @@ const openEditor = async (path, name) => {
         toolbarItems: [
           ["heading", "bold", "italic", "strike"],
           ["ul", "ol", "task", "outdent", "indent"],
-          ["hr", "table", "code", "link"],
+          ["hr", "link", "table", "code", "codeblock"],
         ],
       })
       Object.defineProperty(Element.prototype, "clientWidth", clientWidthDesc)

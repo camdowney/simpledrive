@@ -2624,6 +2624,28 @@ body.dragging {
   padding: 0 !important;
 }
 
+/* Language badge on a WYSIWYG code block; vendor's grey pencil is swapped for a theme-neutral one. */
+.toastui-editor-contents .toastui-editor-ww-code-block::after {
+  background-color: var(--btn-subtle) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cpath fill='%23888' fill-rule='evenodd' d='m15.5 12.5 2 2L12 20h-2v-2l5.5-5.5zM18 10l2 2-1.5 1.5-2-2L18 10z'/%3E%3C/svg%3E") !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-muted) !important;
+  font-weight: 500 !important;
+  font-family: var(--font-sans) !important;
+}
+
+.toastui-editor-ww-code-block-language {
+  background-color: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.toastui-editor-ww-code-block-language input {
+  color: var(--text) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+}
+
 .toastui-editor-contents a:hover {
   cursor: pointer;
 }
@@ -2745,6 +2767,12 @@ body.dragging {
   }
 }
 
+/* Vendor's sprite draws this one as the letters "CB", which matches nothing else in the row. */
+.toastui-editor-toolbar-icons.codeblock {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23585858' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2.75' y='4.75' width='18.5' height='14.5' rx='2.5'/%3E%3Cpath d='M10 9.5 7.5 12l2.5 2.5M14 9.5 16.5 12 14 14.5'/%3E%3C/svg%3E")
+    center / 18px 18px no-repeat !important;
+}
+
 .toastui-editor-toolbar-icons.more {
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='%23585858'%3E%3Ccircle cx='5' cy='12' r='2'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Ccircle cx='19' cy='12' r='2'/%3E%3C/g%3E%3C/svg%3E")
     center / 18px 18px no-repeat !important;
@@ -2850,6 +2878,70 @@ body.dragging {
   background: var(--btn-hover) !important;
   border-color: var(--btn-hover) !important;
   color: var(--text) !important;
+}
+
+/* Heading dropdown — matched to our own menus (see .popover). */
+.toastui-editor-popup-add-heading {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-popover) !important;
+  overflow: hidden !important;
+  font-family: var(--font-sans) !important;
+  color: var(--text) !important;
+}
+
+.toastui-editor-popup-add-heading ul {
+  padding: 4px 0 !important;
+}
+
+.toastui-editor-popup-add-heading ul li {
+  padding: 6px 16px !important;
+  color: var(--text) !important;
+  white-space: nowrap !important;
+}
+
+/* Paragraph is a bare div, so it inherits the popup's 12px next to a 14px h6. */
+.toastui-editor-popup-add-heading li[data-type="Paragraph"] div {
+  font-size: 14px !important;
+}
+
+@media (hover: hover) {
+  .toastui-editor-popup-add-heading ul li:hover {
+    background-color: var(--hover-bg) !important;
+  }
+}
+
+/* Table size picker */
+.toastui-editor-popup-add-table {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-popover) !important;
+  font-family: var(--font-sans) !important;
+}
+
+.toastui-editor-popup-add-table .toastui-editor-popup-body {
+  padding: 12px !important;
+}
+
+.toastui-editor-popup-add-table .toastui-editor-table-cell {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+.toastui-editor-popup-add-table .toastui-editor-table-cell.header {
+  background: var(--bg) !important;
+}
+
+.toastui-editor-popup-add-table .toastui-editor-table-selection-layer {
+  background: color-mix(in srgb, var(--accent) 18%, transparent) !important;
+  border-color: var(--accent) !important;
+}
+
+.toastui-editor-popup-add-table .toastui-editor-table-description {
+  color: var(--text-muted) !important;
+  font-size: 12px !important;
 }
 
 .toastui-editor-contents ul,
