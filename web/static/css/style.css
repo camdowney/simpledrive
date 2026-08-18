@@ -3689,9 +3689,10 @@ ul.tui-colorpicker-clearfix li {
   }
 }
 
+/* Centred on the media's box, which the bars inset, not on the whole area the buttons span. */
 .preview-nav-btn {
   position: absolute;
-  top: 50%;
+  top: calc(50% + (var(--preview-top-h) - var(--preview-bot-h)) / 2);
   transform: translateY(-50%);
   background: rgba(60, 60, 60, 0.75);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
