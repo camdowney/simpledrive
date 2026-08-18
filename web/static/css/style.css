@@ -2563,7 +2563,6 @@ body.dragging {
 
 .editor-body {
   flex: 1;
-  padding-bottom: var(--safe-bottom);
   overflow: hidden;
   display: flex;
   flex-direction: column;
