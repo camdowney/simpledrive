@@ -20,7 +20,12 @@ document.documentElement.dataset.theme = (() => {
   return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
 })()
 
-// Installed, the status bar is painted from this; it has to be right before the bar first shows.
-// --surface, not --bg: the bar butts against a view's top bar, and a seam there reads as a gap.
-document.getElementById("theme-color").content =
-  document.documentElement.dataset.theme === "dark" ? "#202226" : "#ffffff"
+// Installed, iOS samples body's background for the status bar; it must be right before it paints.
+// --surface, not --bg: the strip butts against a view's top bar, and a seam there reads as a gap.
+const chromeColor = (() => {
+  const dark = document.documentElement.dataset.theme === "dark"
+  if (document.documentElement.classList.contains("boot-login")) return dark ? "#16171a" : "#f5f5f5"
+  return dark ? "#202226" : "#ffffff"
+})()
+document.getElementById("theme-color").content = chromeColor
+document.documentElement.style.setProperty("--chrome-bg", chromeColor)

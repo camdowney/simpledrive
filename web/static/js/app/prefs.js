@@ -199,12 +199,16 @@ const statusBarColor = () => {
   // Ordered by what owns the top of the screen: the login page's ground, the viewer's black,
   // then --surface, which every view's top bar is painted in.
   if (!shown("app-view")) return dark ? "#16171a" : "#f5f5f5"
-  if (shown("preview-view")) return "#111"
+  // The bars' scrim, not the #111 ground: the scrim is what actually reaches the viewer's edges.
+  if (shown("preview-view")) return "#040404"
   return dark ? "#202226" : "#ffffff"
 }
 
 const paintStatusBar = () => {
-  document.getElementById("theme-color").content = statusBarColor()
+  const color = statusBarColor()
+  document.getElementById("theme-color").content = color
+  // Installed, iOS samples body's background for the strip above the page, so it has to lead.
+  document.documentElement.style.setProperty("--chrome-bg", color)
 }
 
 // A null state.theme follows the OS; boot.js applies the same resolution before first paint.

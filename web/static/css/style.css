@@ -42,8 +42,11 @@
   --z-modal: 300;
   --z-toast: 500;
   --page-px: 14px;
+  /* What iOS samples for the status bar strip: whatever the shown view puts against it. */
+  --chrome-bg: var(--bg);
   --btn-px: 12px;
-  /* Named so a bar's bleed-through margin and the padding it grows back through can't drift apart. */
+  /* Named so the bars that reach a screen edge can pad themselves out of the system's furniture. */
+  --safe-top: env(safe-area-inset-top);
   --safe-right: env(safe-area-inset-right);
   --safe-bottom: env(safe-area-inset-bottom);
   --safe-left: env(safe-area-inset-left);
@@ -105,10 +108,11 @@ body {
   touch-action: manipulation;
 }
 
+/* Ceded to the strip, not the page: #app-view paints the ground every view actually sits on. */
 body {
   font-family: var(--font-sans);
   font-size: 15px;
-  background: var(--bg);
+  background: var(--chrome-bg);
   color: var(--text);
 }
 
@@ -392,14 +396,14 @@ html.boot-login #login-view {
 }
 
 /* ── Layout ── */
-/* Reserved, not ceded: iOS otherwise fills the home-indicator strip from the manifest's colour. */
 #app-view {
   display: flex;
   flex-direction: column;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
-  padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+  background: var(--bg);
+  padding: 0 var(--safe-right) 0 var(--safe-left);
 }
 
 #browser-view {
@@ -411,14 +415,13 @@ html.boot-login #login-view {
 
 /* ── Tab bar ── */
 /* A flex sibling of the views rather than fixed, so the scrollers shrink and nothing hides under it. */
-/* Grows back through #app-view's reserved inset: the surface reaches the edge, the labels don't. */
+/* Bottom padding carries the home-indicator strip: the surface reaches the edge, the labels don't. */
 .tabbar {
   display: none;
   flex-shrink: 0;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  margin: 0 calc(-1 * var(--safe-right)) calc(-1 * var(--safe-bottom)) calc(-1 * var(--safe-left));
-  padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+  padding-bottom: var(--safe-bottom);
 }
 
 html.installed .tabbar {
@@ -452,10 +455,11 @@ html.installed .tabbar {
   height: 22px;
 }
 
+/* Top padding carries the status-bar strip, so the bar's own surface is what iOS shows there. */
 .topbar {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 8px var(--page-px);
+  padding: calc(8px + var(--safe-top)) var(--page-px) 8px;
   display: none;
   align-items: center;
   gap: 12px;
@@ -472,7 +476,7 @@ html.installed .tabbar {
 
 @media (min-width: 1025px) {
   .topbar {
-    padding-top: 13px;
+    padding-top: calc(13px + var(--safe-top));
     padding-bottom: 13px;
   }
 }
@@ -512,6 +516,13 @@ html.installed .tabbar {
   gap: 8px;
   background: var(--surface);
   padding: 8px var(--page-px) 0;
+}
+
+/* Below the topbar's breakpoint this row is the top of the view, so the strip is its to paint. */
+@media (max-width: 768px) {
+  .breadcrumb-row {
+    padding-top: calc(8px + var(--safe-top));
+  }
 }
 
 .breadcrumb-logo {
@@ -1672,6 +1683,8 @@ body.dragging {
   z-index: var(--z-modal);
   align-items: center;
   justify-content: center;
+  /* The strips are the clock's and the indicator's; a tall dialog centres clear of both. */
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
 }
 
 .modal-backdrop.active {
@@ -2493,6 +2506,7 @@ body.dragging {
 .editor-topbar {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  padding-top: calc(10px + var(--safe-top));
 }
 
 #editor-back-btn {
@@ -2553,6 +2567,7 @@ body.dragging {
 
 .editor-body {
   flex: 1;
+  padding-bottom: var(--safe-bottom);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -3357,6 +3372,9 @@ ul.tui-colorpicker-clearfix li {
 #preview-view {
   /* Height of both bars: the media is inset by it, top and bottom, so neither bar hides any. */
   --preview-bar-h: 54px;
+  /* Each bar also carries the system strip on its side, which the media has to clear as well. */
+  --preview-top-h: calc(var(--preview-bar-h) + var(--safe-top));
+  --preview-bot-h: calc(var(--preview-bar-h) + var(--safe-bottom));
   /* Rows, so the media can span under the bars and hiding them never resizes the media. */
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -3385,7 +3403,8 @@ ul.tui-colorpicker-clearfix li {
   position: relative;
   grid-area: 1 / 1;
   z-index: 1;
-  min-height: var(--preview-bar-h);
+  min-height: var(--preview-top-h);
+  padding-top: var(--safe-top);
   /* A scrim, so the media stays visible under it; kept inside the bar so it never tints the media. */
   background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
   transition: opacity 0.2s;
@@ -3405,8 +3424,9 @@ ul.tui-colorpicker-clearfix li {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--preview-bar-h);
-  padding: 10px var(--page-px);
+  min-height: var(--preview-bot-h);
+  /* The inset rides inside the bar, so its scrim covers it; on #preview-view the ground showed. */
+  padding: 10px var(--page-px) calc(10px + var(--safe-bottom));
   transition: opacity 0.2s;
 }
 
@@ -3757,7 +3777,7 @@ ul.tui-colorpicker-clearfix li {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--preview-bar-h) 0;
+  padding: var(--preview-top-h) 0 var(--preview-bot-h);
   /* A swipe's neighbor panes sit outside this box; .preview-content-area clips them. */
   overflow: visible;
   /* Nothing here scrolls, so the browser must claim no drag; a photo's pinch-zoom still works. */
@@ -3768,7 +3788,7 @@ ul.tui-colorpicker-clearfix li {
 
 @media (min-width: 1025px) {
   .preview-body {
-    padding: var(--preview-bar-h) 20px;
+    padding: var(--preview-top-h) 20px var(--preview-bot-h);
   }
 }
 
@@ -4511,7 +4531,7 @@ html.installed .js-storage {
   align-items: center;
   gap: 8px;
   background: var(--surface);
-  padding: 8px var(--page-px) 0;
+  padding: calc(8px + var(--safe-top)) var(--page-px) 0;
 }
 
 .storage-logo {
