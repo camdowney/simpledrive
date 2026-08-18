@@ -1006,25 +1006,21 @@ html.installed .tabbar {
 /* Parked above the list's top edge; the pull is what brings it into view. */
 .pull-spinner {
   position: absolute;
-  top: -38px;
+  top: -44px;
   left: 50%;
-  width: 30px;
-  height: 30px;
-  margin-left: -15px;
+  width: 32px;
+  height: 32px;
+  margin-left: -16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-popover);
   opacity: 0;
   pointer-events: none;
 }
 
 .pull-spinner-arc {
-  width: 16px;
-  height: 16px;
+  width: 28px;
+  height: 28px;
   fill: none;
   stroke: var(--accent);
   stroke-width: 2.5;
@@ -4526,13 +4522,14 @@ html.installed .js-storage {
   min-height: 0;
 }
 
-/* Padding and children mirror .breadcrumb-row: the logo and the actions must not shift on a tab switch. */
+/* Children mirror .breadcrumb-row: the logo and the actions must not shift on a tab switch. */
 .storage-topbar {
   display: flex;
   align-items: center;
   gap: 8px;
   background: var(--surface);
-  padding: calc(8px + var(--safe-top)) var(--page-px) 0;
+  border-bottom: 1px solid var(--border);
+  padding: calc(8px + var(--safe-top)) var(--page-px) 8px;
 }
 
 .storage-logo {
@@ -4559,7 +4556,7 @@ html.installed .js-storage {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 16px var(--page-px) 24px;
+  padding: 24px var(--page-px);
 }
 
 /* Matches .file-list, so the two tabs hold the same column on a wide screen. */
