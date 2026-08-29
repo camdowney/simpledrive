@@ -29,6 +29,9 @@
   --toast-bg: #1a1a1a;
   --toast-text: #ffffff;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, "Cascadia Mono", Consolas, "Noto Sans Mono",
+    "DejaVu Sans Mono", monospace;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
@@ -2577,7 +2580,7 @@ body.dragging {
   flex: 1;
   border: none;
   outline: none;
-  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.6;
   resize: none;
@@ -2719,6 +2722,12 @@ body.dragging {
   .toastui-editor-ww-container .toastui-editor-contents {
     padding: 20px var(--page-px) 12rem !important;
   }
+}
+
+/* Vendor's Consolas,Courier stack falls through to Nimbus Mono PS on Linux. */
+.toastui-editor-contents code,
+.toastui-editor-contents pre {
+  font-family: var(--font-mono) !important;
 }
 
 .toastui-editor-contents code {
@@ -3304,7 +3313,7 @@ ul.tui-colorpicker-clearfix li {
   border-radius: var(--radius-sm) !important;
   background: transparent !important;
   color: var(--text) !important;
-  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace !important;
+  font-family: var(--font-mono) !important;
   font-size: 12px !important;
   outline: none !important;
   transition: border-color 0.15s;
@@ -4360,7 +4369,7 @@ ul.tui-colorpicker-clearfix li {
   border: 1px dashed var(--accent-subtle-border);
   border-radius: var(--radius-md);
   background: var(--accent-subtle);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 17px;
   letter-spacing: 0.06em;
   text-align: center;
