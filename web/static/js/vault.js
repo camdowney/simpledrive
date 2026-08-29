@@ -78,8 +78,11 @@ const Vault = (() => {
 
   const filePath = (dir, name) => (dir.replace(/\/$/, "") + "/" + name).replace(/^\/\//, "/")
 
+  // no-store: index.age and a rewritten blob keep their URL, so a cached copy undoes the change.
   const getBytes = async (dir, name) => {
-    const res = await fetch(`/api/files/download?path=${encodeURIComponent(filePath(dir, name))}`)
+    const res = await fetch(`/api/files/download?path=${encodeURIComponent(filePath(dir, name))}`, {
+      cache: "no-store",
+    })
     if (!res.ok) throw new Error(`could not read “${name}”`)
     return new Uint8Array(await res.arrayBuffer())
   }

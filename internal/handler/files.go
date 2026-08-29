@@ -269,6 +269,9 @@ func (s *server) downloadHandler(w http.ResponseWriter, r *http.Request) {
 		cd := mime.FormatMediaType("attachment", map[string]string{"filename": fi.Name()})
 		w.Header().Set("Content-Disposition", cd)
 	}
+	// Rewritten in place under a stable URL, so a heuristic cache would serve the pre-change copy.
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("ETag", fmt.Sprintf(`"%x-%x"`, fi.ModTime().UnixNano(), fi.Size()))
 	http.ServeContent(w, r, fi.Name(), fi.ModTime(), f)
 }
 

@@ -74,6 +74,8 @@ func (s *server) downloadS3(w http.ResponseWriter, r *http.Request, res *resolve
 		}
 	}
 	w.Header().Set("Accept-Ranges", "bytes")
+	// An object replaced under the same key keeps its URL, so a heuristic cache would go stale.
+	w.Header().Set("Cache-Control", "no-cache")
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
