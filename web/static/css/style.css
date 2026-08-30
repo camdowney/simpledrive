@@ -426,7 +426,7 @@ html.boot-login #login-view {
   flex-shrink: 0;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  padding-bottom: calc(var(--safe-bottom) / 2);
+  padding-bottom: calc(var(--safe-bottom) / 1.5);
 }
 
 html.installed .tabbar {
