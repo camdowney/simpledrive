@@ -57,7 +57,7 @@ func New(cfg *config.Config, webFS embed.FS) http.Handler {
 	go s.uploadsGCLoop()
 
 	staticFS, _ := fs.Sub(webFS, "web")
-	s.mux.Handle("/static/", http.FileServer(http.FS(staticFS)))
+	s.mux.Handle("/static/", s.revalidated(http.FileServer(http.FS(staticFS))))
 	s.mux.HandleFunc("/", s.indexHandler)
 
 	s.mux.HandleFunc("/api/auth/login", post(s.loginHandler))
@@ -154,5 +154,7 @@ func (s *server) serveIndex(w http.ResponseWriter) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("ETag", `"`+s.version+`"`)
+	w.Header().Set("Cache-Control", "no-cache")
 	w.Write(data)
 }

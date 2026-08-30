@@ -542,9 +542,25 @@ const showDropView = (info) => {
 
 // ─── Install & hand-off ───────────────────────────────────────────────────────
 
+// A reload drops unsaved text, an in-flight transfer and whatever is playing; wait those out.
+const reloadWhenIdle = () => {
+  const busy = () =>
+    state.editorDirty ||
+    document.getElementById("modal-backdrop").classList.contains("active") ||
+    !!document.querySelector(".progress-panel.active") ||
+    [...document.querySelectorAll("audio, video")].some((m) => !m.paused)
+  const tick = () => (busy() ? setTimeout(tick, 5000) : location.reload())
+  tick()
+}
+
 // Owner only: a share visitor caches nothing of the folder and has nothing to install.
 const registerWorker = () => {
   if (!("serviceWorker" in navigator) || isShareUrl()) return
+  // This page was served from the outgoing worker's cache, so its replacement only lands on a reload.
+  const updating = !!navigator.serviceWorker.controller
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (updating) reloadWhenIdle()
+  })
   navigator.serviceWorker.register("/sw.js").catch(() => {})
 }
 

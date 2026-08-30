@@ -109,6 +109,8 @@ body {
   overflow: hidden;
   /* Drops double-tap zoom (and its 300ms tap delay); pinch still zooms. */
   touch-action: manipulation;
+  /* Our pull-to-refresh owns the gesture; the browser's native one must not take it first. */
+  overscroll-behavior-y: contain;
 }
 
 /* Ceded to the strip, not the page: #app-view paints the ground every view actually sits on. */
@@ -418,13 +420,13 @@ html.boot-login #login-view {
 
 /* ── Tab bar ── */
 /* A flex sibling of the views rather than fixed, so the scrollers shrink and nothing hides under it. */
-/* Bottom padding carries the home-indicator strip: the surface reaches the edge, the labels don't. */
+/* Padding, so the surface reaches the edge; half the strip, as the full inset is bottom-heavy. */
 .tabbar {
   display: none;
   flex-shrink: 0;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  padding-bottom: var(--safe-bottom);
+  padding-bottom: calc(var(--safe-bottom) / 2);
 }
 
 html.installed .tabbar {

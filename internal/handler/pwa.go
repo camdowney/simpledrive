@@ -45,3 +45,13 @@ func (s *server) serviceWorkerHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Write([]byte(body))
 }
+
+// Embedded files report no modtime, so ServeContent sends no validator and a proxy is free to
+// hold an asset forever. The build fingerprint is one, and it moves whenever any asset does.
+func (s *server) revalidated(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("ETag", `"`+s.version+`"`)
+		w.Header().Set("Cache-Control", "no-cache")
+		next.ServeHTTP(w, r)
+	})
+}

@@ -45,7 +45,10 @@ self.addEventListener("install", (e) => {
     caches
       .open(SHELL)
       // One failed asset must not fail the install, or a single 404 leaves the app uncached.
-      .then((c) => Promise.allSettled(SHELL_URLS.map((u) => c.add(u))))
+      // Reload, not default: a stale HTTP-cache hit would fill this build's cache with the last one.
+      .then((c) =>
+        Promise.allSettled(SHELL_URLS.map((u) => c.add(new Request(u, { cache: "reload" }))))
+      )
       .then(() => self.skipWaiting())
   )
 })
