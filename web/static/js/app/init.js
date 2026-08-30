@@ -292,7 +292,12 @@ const init = async () => {
     el.addEventListener("click", showStorage)
   })
 
-  document.getElementById("tab-files").addEventListener("click", () => showBrowser())
+  const filesTab = document.getElementById("tab-files")
+  filesTab.addEventListener("click", () => {
+    // Already on the listing: the tab is what climbs back out of a deep folder.
+    if (!filesTab.classList.contains("active")) return showBrowser()
+    if (state.currentPath !== homePath()) navigate(homePath())
+  })
   document.getElementById("tab-storage").addEventListener("click", showStorageView)
 
   document.getElementById("options-tags-btn").addEventListener("click", () => {
