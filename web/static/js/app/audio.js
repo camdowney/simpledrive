@@ -330,6 +330,7 @@ const buildAudioPlayer = () => {
   player.addEventListener("volumechange", () => {
     userVolume = clamp01(trackGain > 0 ? player.volume / trackGain : player.volume)
     localStorage.setItem("volume", userVolume)
+    syncNowPlayingVolume()
   })
   const mark = (s) => navigator.mediaSession && (navigator.mediaSession.playbackState = s)
   player.addEventListener("play", () => mark("playing"))
@@ -399,6 +400,13 @@ const syncNowPlaying = () => {
   document.getElementById("now-playing-name").textContent = songTitle(state.audioSong.name)
   syncNowPlayingToggle()
   syncNowPlayingProgress()
+  syncNowPlayingVolume()
+}
+
+const syncNowPlayingVolume = () => {
+  const slider = document.getElementById("now-playing-volume")
+  slider.classList.toggle("hidden", VOLUME_LOCKED)
+  slider.value = userVolume
 }
 
 const syncNowPlayingToggle = () => {
@@ -408,11 +416,19 @@ const syncNowPlayingToggle = () => {
   btn.querySelector("use").setAttribute("href", paused ? "#icon-play" : "#icon-pause")
 }
 
+let seekDragging = false
+
+const paintSeek = (frac) => {
+  const seek = document.getElementById("now-playing-seek")
+  seek.value = Math.round(frac * 1000)
+  seek.style.setProperty("--progress", `${frac * 100}%`)
+}
+
 const syncNowPlayingProgress = () => {
-  if (!inBar) return
+  // Playback would otherwise drag the thumb back out from under the finger.
+  if (!inBar || seekDragging) return
   const { currentTime, duration } = songPlayer
-  const pct = isFinite(duration) && duration > 0 ? (currentTime / duration) * 100 : 0
-  document.getElementById("now-playing").style.setProperty("--progress", `${pct}%`)
+  paintSeek(isFinite(duration) && duration > 0 ? currentTime / duration : 0)
 }
 
 // Leaving the viewer mid-song hands the player to the bar rather than silencing it.
@@ -472,6 +488,21 @@ const wireNowPlaying = () => {
   on("now-playing-prev", () => songNavigate(-1))
   on("now-playing-next", () => songNavigate(1))
   on("now-playing-close", stopSongInBar)
+  // Seeks once, on release: every step of a drag would be a fresh range request.
+  const seek = document.getElementById("now-playing-seek")
+  seek.addEventListener("pointerdown", () => (seekDragging = true))
+  seek.addEventListener("pointercancel", () => (seekDragging = false))
+  seek.addEventListener("input", () => paintSeek(seek.value / 1000))
+  seek.addEventListener("change", () => {
+    seekDragging = false
+    const { duration } = songPlayer
+    if (isFinite(duration) && duration > 0) songPlayer.currentTime = (seek.value / 1000) * duration
+  })
+  // Set as the user's level, so the song's loudness gain stays applied on top of it.
+  document.getElementById("now-playing-volume").addEventListener("input", (e) => {
+    userVolume = clamp01(Number(e.target.value))
+    applyTrackGain(trackGain)
+  })
   on("now-playing-toggle", () => {
     if (songPlayer.paused) songPlayer.play().catch(() => {})
     else songPlayer.pause()

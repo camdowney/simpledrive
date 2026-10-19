@@ -420,9 +420,11 @@ html.boot-login #login-view {
 
 /* ── Now playing ── */
 /* A flex sibling like the tab bar below it, so the views shrink rather than hide under it. */
+/* Equal side columns keep the controls centered whatever the title's length. */
 .now-playing {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
@@ -436,15 +438,66 @@ html.installed .now-playing:has(+ .tabbar:not(.hidden)) {
   padding-bottom: 6px;
 }
 
-/* Progress, drawn over the top border. */
-.now-playing::before {
-  content: "";
+/* Laid over the top border: a hairline to look at, with a taller strip to grab. */
+.now-playing-seek {
+  -webkit-appearance: none;
+  appearance: none;
   position: absolute;
-  top: -1px;
+  top: -8px;
   left: 0;
-  width: var(--progress, 0%);
-  height: 2px;
+  width: 100%;
+  height: 16px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.now-playing-seek::-webkit-slider-runnable-track {
+  height: 3px;
+  background: linear-gradient(var(--accent), var(--accent)) 0 / var(--progress, 0%) 100% no-repeat;
+}
+
+.now-playing-seek::-moz-range-track {
+  height: 3px;
+  background: linear-gradient(var(--accent), var(--accent)) 0 / var(--progress, 0%) 100% no-repeat;
+}
+
+/* Hidden until reached for, so at rest it reads as a progress line. */
+.now-playing-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+  border-radius: 50%;
   background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.now-playing-seek::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.now-playing-seek:hover::-webkit-slider-thumb,
+.now-playing-seek:active::-webkit-slider-thumb,
+.now-playing-seek:focus-visible::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+.now-playing-seek:hover::-moz-range-thumb,
+.now-playing-seek:active::-moz-range-thumb,
+.now-playing-seek:focus-visible::-moz-range-thumb {
+  opacity: 1;
+}
+
+.now-playing-seek:focus-visible {
+  outline: none;
 }
 
 .now-playing > audio {
@@ -452,7 +505,6 @@ html.installed .now-playing:has(+ .tabbar:not(.hidden)) {
 }
 
 .now-playing-song {
-  flex: 1;
   min-width: 0;
   padding: 8px 0;
   border: 0;
@@ -475,8 +527,21 @@ html.installed .now-playing:has(+ .tabbar:not(.hidden)) {
 
 .now-playing-controls {
   display: flex;
-  flex-shrink: 0;
+  align-items: center;
   gap: 2px;
+}
+
+.now-playing-volume {
+  width: 96px;
+  margin-left: 8px;
+  accent-color: var(--accent);
+}
+
+/* Phones set the level with their own buttons, and the title needs the room. */
+@media (max-width: 768px) {
+  .now-playing-volume {
+    display: none;
+  }
 }
 
 .now-playing-btn {
@@ -490,6 +555,10 @@ html.installed .now-playing:has(+ .tabbar:not(.hidden)) {
 .now-playing-btn .btn-icon {
   width: 18px;
   height: 18px;
+}
+
+#now-playing-close {
+  justify-self: end;
 }
 
 /* ── Tab bar ── */

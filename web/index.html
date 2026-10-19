@@ -1176,6 +1176,15 @@
 
       <!-- Now playing: the song player moves in here once its viewer is closed -->
       <div class="now-playing hidden" id="now-playing" role="region" aria-label="Now playing">
+        <input
+          type="range"
+          class="now-playing-seek"
+          id="now-playing-seek"
+          min="0"
+          max="1000"
+          value="0"
+          aria-label="Seek"
+        />
         <button class="now-playing-song" id="now-playing-open" title="Open player">
           <span class="now-playing-name" id="now-playing-name"></span>
         </button>
@@ -1189,10 +1198,19 @@
           <button class="btn btn-ghost now-playing-btn" id="now-playing-next" aria-label="Next">
             <svg class="btn-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
           </button>
-          <button class="btn btn-ghost now-playing-btn" id="now-playing-close" aria-label="Stop">
-            <svg class="btn-icon" aria-hidden="true"><use href="#icon-x" /></svg>
-          </button>
+          <input
+            type="range"
+            class="now-playing-volume"
+            id="now-playing-volume"
+            min="0"
+            max="1"
+            step="0.01"
+            aria-label="Volume"
+          />
         </div>
+        <button class="btn btn-ghost now-playing-btn" id="now-playing-close" aria-label="Stop">
+          <svg class="btn-icon" aria-hidden="true"><use href="#icon-x" /></svg>
+        </button>
       </div>
 
       <nav class="tabbar hidden" id="tabbar" aria-label="Sections">
