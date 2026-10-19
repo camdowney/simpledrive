@@ -9,24 +9,28 @@ const audioModeAria = () =>
 const AUDIO_MODE_NEXT = { off: "sequential", sequential: "shuffle", shuffle: "off" }
 const TAG_KEEP_SECS = 15 // heard this much and the song earns the tag; skipped sooner, it loses it
 
-// Direct child only: a swipe's peek mounts a player of its own, and that one is scenery.
-const audioPlayer = () => document.querySelector("#preview-body > audio")
+// The one song player, in the viewer or the bar; a swipe's peek mounts its own, as scenery.
+let songPlayer = null
+const audioPlayer = () => songPlayer
 
 // Not the paging queue: an archive opens without joining it, and a tag filter can drop it out.
 const currentPreviewEntry = () => state.previewEntry
 
+// Against the run's own folder, which the listing may have moved on from.
+const songPath = (e) => joinPath(state.audioDir, e.name)
+
 // An empty result would strand playback, so a tag selection nothing matches falls back to all.
 const audioQueue = () => {
-  const songs = state.previewFiles.filter((e) => fileType(e.name) === "audio")
+  const songs = state.audioFiles.filter((e) => fileType(e.name) === "audio")
   if (!state.audioTags.size) return songs
   const kept = songs.filter((e) =>
-    (state.fileTags[relPath(e.name)] || []).some((id) => state.audioTags.has(id))
+    (state.fileTags[songPath(e)] || []).some((id) => state.audioTags.has(id))
   )
   return kept.length ? kept : songs
 }
 
 const queuePos = (queue) => {
-  const cur = currentPreviewEntry()
+  const cur = state.audioSong
   return cur ? queue.findIndex((e) => e.name === cur.name) : -1
 }
 
@@ -41,7 +45,7 @@ const mixShare = () => (audioMix() !== null && state.audioMode === "shuffle" ? a
 
 // One side of the mix: songs carrying the tag being autotagged, or the ones without it.
 const mixSide = (songs, without) => {
-  const has = (e) => (state.fileTags[relPath(e.name)] || []).includes(state.audioTagging)
+  const has = (e) => (state.fileTags[songPath(e)] || []).includes(state.audioTagging)
   return songs.filter((e) => has(e) !== without)
 }
 
@@ -60,7 +64,7 @@ const pickFrom = (...pools) => {
 
 // What the run plays next: a song it hasn't played yet, from the side the share rolled.
 const dealForward = (queue, share) => {
-  const cur = currentPreviewEntry()?.name
+  const cur = state.audioSong?.name
   const side = mixRoll(share)
   const fresh = side(queue.filter((e) => !shuffleOrder.includes(e.name)))
   if (fresh.length) return pickFrom(fresh)
@@ -72,7 +76,7 @@ const dealForward = (queue, share) => {
 
 // A pick of its own, put in front, so back off the run's first song is random like the rest.
 const dealBack = (queue, share) => {
-  const cur = currentPreviewEntry()?.name
+  const cur = state.audioSong?.name
   const side = mixRoll(share)
   const rest = queue.filter((e) => e.name !== cur)
   const fresh = rest.filter((e) => !shuffleOrder.includes(e.name))
@@ -84,7 +88,7 @@ const dealBack = (queue, share) => {
 
 // A pick is committed as the order is read, so peek, skip button and ending song all agree.
 const shuffledQueue = (queue, share) => {
-  const cur = currentPreviewEntry()?.name
+  const cur = state.audioSong?.name
   const inQueue = (n) => queue.some((e) => e.name === n)
   // A song opened off the order — a new folder, or a pick from the list — starts a fresh one.
   if (cur && inQueue(cur) && !shuffleOrder.includes(cur)) shuffleOrder = [cur]
@@ -110,11 +114,8 @@ const trailBack = () => {
   }
 }
 
-// What paging lands on: a song steps through the play queue, anything else through the folder.
-const previewNeighbor = (delta) => {
-  // A file outside the paging queue (an archive) sits at -1, where +1 would land on the first.
-  if (state.previewIdx < 0 && state.previewType !== "audio") return undefined
-  if (state.previewType !== "audio") return state.previewFiles[state.previewIdx + delta]
+// Where a skip lands in the run; `trail` gives what back off its head leaves for, if anything.
+const songNeighbor = (delta, trail = () => null) => {
   const songs = audioQueue()
   const order = playQueue(songs)
   const at = queuePos(order)
@@ -125,10 +126,18 @@ const previewNeighbor = (delta) => {
   // Past its end the queue comes round again; only shuffle can run off the front of its order.
   if (delta > 0) return order[0]
   // Back off the head leaves the run for whatever it was paged into from; shuffle deals instead.
-  const from = trailBack()
+  const from = trail()
   if (from) return from
   if (state.audioMode === "shuffle") return dealBack(songs, mixShare()) || order.at(-1)
   return order.at(-1)
+}
+
+// What paging lands on: a song steps through the play queue, anything else through the folder.
+const previewNeighbor = (delta) => {
+  // A file outside the paging queue (an archive) sits at -1, where +1 would land on the first.
+  if (state.previewIdx < 0 && state.previewType !== "audio") return undefined
+  if (state.previewType !== "audio") return state.previewFiles[state.previewIdx + delta]
+  return songNeighbor(delta, trailBack)
 }
 
 // Heard out, the song keeps the tag; skipped, it loses it. Returns whether a tag moved.
@@ -167,16 +176,18 @@ const wireMediaSession = (player) => {
   }
   on("play", () => player.play())
   on("pause", () => player.pause())
-  on("previoustrack", () => previewNavigate(-1))
-  on("nexttrack", () => previewNavigate(1))
+  on("previoustrack", () => skipSong(-1))
+  on("nexttrack", () => skipSong(1))
 }
 
-const setMediaMetadata = (name) => {
+const songTitle = (name) => name.replace(/\.[^.]+$/, "")
+
+const setMediaMetadata = ({ path, name }) => {
   const ms = navigator.mediaSession
   if (!ms || !window.MediaMetadata) return
   ms.metadata = new MediaMetadata({
-    title: name.replace(/\.[^.]+$/, ""),
-    album: state.currentPath.split("/").filter(Boolean).pop() || "",
+    title: songTitle(name),
+    album: parentPath(path).split("/").filter(Boolean).pop() || "",
   })
 }
 
@@ -273,9 +284,9 @@ const warmGains = (paths, { soon = false, only = false } = {}) => {
 // Either way out of the open song is one skip away, so both neighbours are worth having ready.
 const warmNeighborGains = () =>
   warmGains(
-    [previewNeighbor(-1), previewNeighbor(1)]
+    [songNeighbor(-1), songNeighbor(1)]
       .filter((e) => e && fileType(e.name) === "audio")
-      .map((e) => relPath(e.name)),
+      .map(songPath),
     { soon: true }
   )
 
@@ -323,23 +334,38 @@ const buildAudioPlayer = () => {
   const mark = (s) => navigator.mediaSession && (navigator.mediaSession.playbackState = s)
   player.addEventListener("play", () => mark("playing"))
   player.addEventListener("pause", () => mark("paused"))
+  for (const ev of ["play", "pause"]) player.addEventListener(ev, syncNowPlayingToggle)
+  player.addEventListener("timeupdate", syncNowPlayingProgress)
   // iOS falls back to its own skip buttons unless the handlers are re-registered per src load.
   player.addEventListener("loadedmetadata", () => {
     wireMediaSession(player)
-    const entry = state.previewType === "audio" && currentPreviewEntry()
-    if (entry) setMediaMetadata(entry.name)
+    if (state.audioSong) setMediaMetadata(state.audioSong)
   })
   player.addEventListener("ended", () => {
     // Settling clears the track the run's position is read from, so take it before that.
     const fromHead = state.audioTrack?.path === state.audioHead
     const moved = settleTagging(true)
-    if (state.audioMode !== "off") return previewNavigate(1, { fromHead })
+    if (state.audioMode !== "off") return skipSong(1, { fromHead })
     // A rebuild would close whatever menu the bar has open, so redraw only if the chips changed.
     const entry = currentPreviewEntry()
-    if (moved && entry) renderPreviewBar(relPath(entry.name), "audio")
+    if (moved && entry && !inBar) renderPreviewBar(relPath(entry.name), "audio")
   })
   wireMediaSession(player)
+  songPlayer = player
   return player
+}
+
+// Shared by the viewer and the bar: points the one player at a song and starts it.
+const loadSong = (path, name, url, { paging = false } = {}) => {
+  const player = audioPlayer() || buildAudioPlayer()
+  player.src = url
+  player.play().catch(() => {}) // a reused player has no autoplay pass of its own
+  loadTrackGain(path)
+  state.audioSong = { path, name }
+  setMediaMetadata(state.audioSong)
+  state.audioTrack = { path, name }
+  // A song picked outside of paging starts its own run, so it is the newest by definition.
+  if (!paging) state.audioHead = path
 }
 
 const stopAudio = () => {
@@ -352,11 +378,104 @@ const stopAudio = () => {
   clearMediaSession()
 }
 
-// The filter and the autotag pass belong to one listening session; leaving the player drops both.
+// The filter and the autotag pass belong to one listening session; ending it drops both.
 const endAudioSession = () => {
   state.audioTags.clear()
   state.audioTagging = null
   shuffleOrder = []
+}
+
+// ─── Now playing bar ──────────────────────────────────────────────────────────
+
+let inBar = false
+const songInBar = () => inBar
+
+// Only over the tabbed screens: the editor's leave guard would be skipped by opening the viewer.
+const syncNowPlaying = () => {
+  const shown = (id) => !document.getElementById(id).classList.contains("hidden")
+  const bar = document.getElementById("now-playing")
+  bar.classList.toggle("hidden", !inBar || !(shown("browser-view") || shown("storage-view")))
+  if (!inBar) return
+  document.getElementById("now-playing-name").textContent = songTitle(state.audioSong.name)
+  syncNowPlayingToggle()
+  syncNowPlayingProgress()
+}
+
+const syncNowPlayingToggle = () => {
+  const paused = !songPlayer || songPlayer.paused
+  const btn = document.getElementById("now-playing-toggle")
+  btn.setAttribute("aria-label", paused ? "Play" : "Pause")
+  btn.querySelector("use").setAttribute("href", paused ? "#icon-play" : "#icon-pause")
+}
+
+const syncNowPlayingProgress = () => {
+  if (!inBar) return
+  const { currentTime, duration } = songPlayer
+  const pct = isFinite(duration) && duration > 0 ? (currentTime / duration) * 100 : 0
+  document.getElementById("now-playing").style.setProperty("--progress", `${pct}%`)
+}
+
+// Leaving the viewer mid-song hands the player to the bar rather than silencing it.
+const sendSongToBar = () => {
+  if (inBar) return true
+  // A vault song plays from decrypted bytes that are released along with the vault.
+  if (state.previewType !== "audio" || state.inVault || !songPlayer?.src || songPlayer.paused)
+    return false
+  // Moved within one task, so it's never out of the document long enough to be paused for it.
+  document.getElementById("now-playing").prepend(songPlayer)
+  inBar = true
+  syncNowPlaying()
+  return true
+}
+
+const takeSongFromBar = () => {
+  inBar = false
+  syncNowPlaying()
+}
+
+const stopSongInBar = () => {
+  settleTagging(false, { keepOnly: true })
+  endAudioSession()
+  stopAudio()
+  takeSongFromBar()
+}
+
+// The bar walks the same queue the viewer would, loading each song straight into the player.
+const songNavigate = (delta, { fromHead = null } = {}) => {
+  const entry = songNeighbor(delta)
+  if (!entry) return
+  const back = delta < 0
+  settleTagging(false, { keepOnly: back })
+  const extend = !back && (fromHead ?? state.audioTrack?.path === state.audioHead)
+  const path = songPath(entry)
+  const url = previewSrcs(entry, path, entry.name, "audio", false).original
+  loadSong(path, entry.name, url, { paging: true })
+  if (extend) state.audioHead = path
+  syncNowPlaying()
+  warmNeighborGains()
+}
+
+const skipSong = (delta, opts) => (inBar ? songNavigate(delta, opts) : previewNavigate(delta, opts))
+
+// The viewer's queue and paging are built from the listing, so the song's folder comes first.
+const openSongFromBar = async () => {
+  const { name } = state.audioSong
+  if (state.currentPath !== state.audioDir) await navigate(state.audioDir, { pushHash: false })
+  const entry = state.entries.find((e) => e.name === name)
+  if (entry) openPreview(songPath(entry), name, "audio")
+  else toast("Couldn't find this song in its folder", true)
+}
+
+const wireNowPlaying = () => {
+  const on = (id, fn) => document.getElementById(id).addEventListener("click", fn)
+  on("now-playing-open", openSongFromBar)
+  on("now-playing-prev", () => songNavigate(-1))
+  on("now-playing-next", () => songNavigate(1))
+  on("now-playing-close", stopSongInBar)
+  on("now-playing-toggle", () => {
+    if (songPlayer.paused) songPlayer.play().catch(() => {})
+    else songPlayer.pause()
+  })
 }
 
 // Which tags is left to the dots, so the label only has to say whether the queue is narrowed.

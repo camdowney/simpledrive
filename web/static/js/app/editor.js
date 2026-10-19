@@ -233,6 +233,31 @@ const showLinkPopover = (anchor) => {
   pop.style.top = `${Math.max(8, top)}px`
 }
 
+// The link popup's fields are reordered in CSS; make Tab follow the visual order.
+const orderLinkPopupTabs = (root) => {
+  if (root.dataset.linkTabsWired) return
+  root.dataset.linkTabsWired = "1"
+  root.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key !== "Tab") return
+      const pop = e.target.closest?.(".toastui-editor-popup-add-link")
+      if (!pop) return
+      const seq = [
+        pop.querySelector("#toastuiLinkTextInput"),
+        pop.querySelector("#toastuiLinkUrlInput"),
+        ...pop.querySelectorAll(".toastui-editor-button-container button"),
+      ].filter((el) => el && !el.disabled)
+      const i = seq.indexOf(e.target)
+      const next = i < 0 ? null : seq[i + (e.shiftKey ? -1 : 1)]
+      if (!next) return
+      e.preventDefault()
+      next.focus()
+    },
+    true
+  )
+}
+
 const enableEditorLinks = (root) => {
   const container = root.querySelector(".toastui-editor-ww-container")
   if (!container) return
@@ -732,6 +757,7 @@ const openEditor = async (path, name) => {
       wireToolbarPopoverToggle(mdWrap)
       patchListBackspace(mdWrap, wwView)
       enableEditorLinks(mdWrap)
+      orderLinkPopupTabs(mdWrap)
       requestAnimationFrame(() => {
         const mdScrollEl = mdWrap.querySelector(".toastui-editor-main-container")
         if (mdScrollEl) mdScrollEl.scrollTop = 0

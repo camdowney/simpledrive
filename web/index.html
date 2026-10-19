@@ -286,6 +286,18 @@
         <line x1="5" y1="12" x2="19" y2="12" />
       </symbol>
       <symbol
+        id="icon-x"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </symbol>
+      <symbol
         id="icon-minus"
         viewBox="0 0 24 24"
         fill="none"
@@ -1159,6 +1171,27 @@
         </div>
         <div class="storage-panel">
           <div class="storage" id="storage-root"></div>
+        </div>
+      </div>
+
+      <!-- Now playing: the song player moves in here once its viewer is closed -->
+      <div class="now-playing hidden" id="now-playing" role="region" aria-label="Now playing">
+        <button class="now-playing-song" id="now-playing-open" title="Open player">
+          <span class="now-playing-name" id="now-playing-name"></span>
+        </button>
+        <div class="now-playing-controls">
+          <button class="btn btn-ghost now-playing-btn" id="now-playing-prev" aria-label="Previous">
+            <svg class="btn-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+          </button>
+          <button class="btn btn-ghost now-playing-btn" id="now-playing-toggle" aria-label="Pause">
+            <svg class="btn-icon" aria-hidden="true"><use href="#icon-pause" /></svg>
+          </button>
+          <button class="btn btn-ghost now-playing-btn" id="now-playing-next" aria-label="Next">
+            <svg class="btn-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+          </button>
+          <button class="btn btn-ghost now-playing-btn" id="now-playing-close" aria-label="Stop">
+            <svg class="btn-icon" aria-hidden="true"><use href="#icon-x" /></svg>
+          </button>
         </div>
       </div>
 

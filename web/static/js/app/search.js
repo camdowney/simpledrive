@@ -338,10 +338,13 @@ const replacePathHash = (path) => {
 
 // Silences the viewer but leaves its chrome up: back re-routes a frame or two after we leave.
 const silencePreview = () => {
-  // Runs before the players clear, so the verdict reads the song's position; leaving is no skip.
-  settleTagging(false, { keepOnly: true })
-  endAudioSession()
-  clearMediaSession()
+  // A song still playing carries on in the bar, and its run and owed verdict go along with it.
+  if (!sendSongToBar()) {
+    // Runs before the players clear, so the verdict reads the song's position; leaving is no skip.
+    settleTagging(false, { keepOnly: true })
+    endAudioSession()
+    clearMediaSession()
+  }
   for (const player of document.querySelectorAll("#preview-body video, #preview-body audio"))
     player.pause()
   // A swipe still settling would otherwise page back into the viewer we just left.
@@ -387,6 +390,7 @@ const showOnly = (id) => {
     if (t === tab) el.setAttribute("aria-current", "page")
     else el.removeAttribute("aria-current")
   }
+  syncNowPlaying()
   paintStatusBar()
 }
 

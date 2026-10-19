@@ -76,6 +76,9 @@ const state = {
   audioHead: null, // path of the newest song the run has reached; only it is still being judged
   audioTrail: [], // names of the files a run was paged into from; where its back button leaves off
   audioNormalize: cachedPrefs.audioNormalize === true, // level every song to a common loudness
+  audioSong: null, // { path, name } loaded in the player; it outlives the viewer while in the bar
+  audioFiles: [], // the run's own copy of its folder's files, so browsing on doesn't move its queue
+  audioDir: "/", // the folder audioFiles were listed from; their paths resolve against it
 }
 
 // ─── Sharing ──────────────────────────────────────────────────────────────────

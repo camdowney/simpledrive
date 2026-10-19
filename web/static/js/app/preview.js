@@ -104,9 +104,10 @@ const upgradeToDisplay = async (img, displayUrl) => {
 }
 
 // Shared with the swipe peeks, so a URL a swipe pulled is cached when the file opens for real.
-const previewSrcs = (entry, path, name, type) => {
+// `vault` is overridable: the bar's song never came from a vault, whatever folder is open now.
+const previewSrcs = (entry, path, name, type, vault = state.inVault) => {
   // A vault file is already decrypted into a blob; there is no URL, poster or re-encode behind it.
-  if (state.inVault) {
+  if (vault) {
     return { original: (entry && vaultBlobs.get(entry.id)) || "", thumb: "", display: "" }
   }
   const v = entry ? `&v=${encodeURIComponent(entryVer(entry))}` : ""
@@ -138,6 +139,16 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
       return
     }
   }
+  // The bar's own song picks up where it is; any other song takes the player over from it.
+  const resume = type === "audio" && songInBar() && state.audioSong?.path === path
+  if (type === "audio" && songInBar()) {
+    if (!resume) {
+      settleTagging(false, { keepOnly: true })
+      endAudioSession()
+    }
+    takeSongFromBar()
+  }
+  if (type === "video" && songInBar()) audioPlayer().pause()
   // Leaving a song settles the verdict tagging owes it, and silences it unless another follows.
   if (state.previewType === "audio") {
     settleTagging(false)
@@ -187,16 +198,10 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
     body.innerHTML = `<video controls autoplay playsinline preload="metadata"${poster}><source src="${esc(url)}"><p>Your browser does not support this video.</p></video>`
   } else if (type === "audio") {
     const player = audioPlayer() || buildAudioPlayer()
-    player.src = url
     // Re-inserting the element drops iOS's lock screen session; clear around it, not through it.
     for (const node of [...body.childNodes]) if (node !== player) node.remove()
     if (player.parentNode !== body) body.appendChild(player)
-    player.play().catch(() => {}) // a reused player has no autoplay pass of its own
-    loadTrackGain(path)
-    setMediaMetadata(name)
-    state.audioTrack = { path, name }
-    // A song picked outside of paging starts its own run, so it is the newest by definition.
-    if (!paging) state.audioHead = path
+    if (!resume) loadSong(path, name, url, { paging })
   } else if (type === "pdf") {
     body.innerHTML = `<iframe src="${esc(url)}" title="${esc(name)}"></iframe>`
   } else {
@@ -230,6 +235,8 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
       spinner.textContent = "Couldn't load this file"
     }
     if (media.tagName === "VIDEO" || media.tagName === "AUDIO") {
+      // A song resumed from the bar loaded long ago; none of the events below will come again.
+      if (media.readyState >= HTMLMediaElement.HAVE_METADATA) loaded()
       // iOS may block autoplay and never fire loadeddata; metadata is enough to drop the spinner.
       for (const ev of ["loadedmetadata", "loadeddata", "playing"])
         media.addEventListener(ev, loaded, { once: true })
@@ -273,6 +280,10 @@ const openPreview = async (path, name, type, { replace = false, paging = false }
   state.previewFiles = state.entries.filter((e) => !e.isDir && isViewable(e.name))
   state.previewIdx = state.previewFiles.findIndex((e) => e.name === name)
   state.previewEntry = entry || null
+  if (type === "audio") {
+    state.audioFiles = state.previewFiles
+    state.audioDir = state.currentPath
+  }
   renderPreviewBar(path, type)
   updatePreviewNav()
   updatePreviewTool(name)
