@@ -490,14 +490,20 @@ const wireNowPlaying = () => {
   on("now-playing-close", stopSongInBar)
   // Seeks once, on release: every step of a drag would be a fresh range request.
   const seek = document.getElementById("now-playing-seek")
-  seek.addEventListener("pointerdown", () => (seekDragging = true))
-  seek.addEventListener("pointercancel", () => (seekDragging = false))
-  seek.addEventListener("input", () => paintSeek(seek.value / 1000))
-  seek.addEventListener("change", () => {
+  const commitSeek = () => {
+    if (!seekDragging) return
     seekDragging = false
     const { duration } = songPlayer
     if (isFinite(duration) && duration > 0) songPlayer.currentTime = (seek.value / 1000) * duration
+  }
+  seek.addEventListener("pointerdown", () => (seekDragging = true))
+  seek.addEventListener("input", () => {
+    seekDragging = true // keyboard steps arrive with no pointer down first
+    paintSeek(seek.value / 1000)
   })
+  // A long hold can end without a change event, so any way the press ends commits it.
+  seek.addEventListener("change", commitSeek)
+  for (const ev of ["pointerup", "pointercancel"]) document.addEventListener(ev, commitSeek)
   // Set as the user's level, so the song's loudness gain stays applied on top of it.
   document.getElementById("now-playing-volume").addEventListener("input", (e) => {
     userVolume = clamp01(Number(e.target.value))

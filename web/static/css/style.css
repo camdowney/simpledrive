@@ -450,6 +450,10 @@ html.installed .now-playing:has(+ .tabbar:not(.hidden)) {
   margin: 0;
   background: transparent;
   cursor: pointer;
+  /* Else a long press is claimed as a scroll or callout and the drag is cancelled midway. */
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .now-playing-seek::-webkit-slider-runnable-track {
@@ -484,16 +488,25 @@ html.installed .now-playing:has(+ .tabbar:not(.hidden)) {
   transition: opacity var(--transition);
 }
 
-.now-playing-seek:hover::-webkit-slider-thumb,
 .now-playing-seek:active::-webkit-slider-thumb,
 .now-playing-seek:focus-visible::-webkit-slider-thumb {
   opacity: 1;
 }
 
-.now-playing-seek:hover::-moz-range-thumb,
 .now-playing-seek:active::-moz-range-thumb,
 .now-playing-seek:focus-visible::-moz-range-thumb {
   opacity: 1;
+}
+
+/* Touch keeps :hover after the finger lifts, which would leave the thumb showing. */
+@media (hover: hover) {
+  .now-playing-seek:hover::-webkit-slider-thumb {
+    opacity: 1;
+  }
+
+  .now-playing-seek:hover::-moz-range-thumb {
+    opacity: 1;
+  }
 }
 
 .now-playing-seek:focus-visible {
