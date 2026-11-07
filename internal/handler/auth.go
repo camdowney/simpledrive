@@ -41,7 +41,11 @@ func (s *server) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expires := time.Now().Add(time.Duration(s.cfg.SessionHours) * time.Hour)
+	s.setSessionCookies(w, r, token, time.Now().Add(time.Duration(s.cfg.SessionHours)*time.Hour))
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *server) setSessionCookies(w http.ResponseWriter, r *http.Request, token string, expires time.Time) {
 	secure := s.secureRequest(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,
@@ -60,7 +64,6 @@ func (s *server) loginHandler(w http.ResponseWriter, r *http.Request) {
 		Secure:   secure,
 		SameSite: http.SameSiteStrictMode,
 	})
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (s *server) logoutHandler(w http.ResponseWriter, r *http.Request) {

@@ -23,9 +23,17 @@ func shareOf(r *http.Request) *share {
 	return sh
 }
 
-func (s *server) ownerSession(r *http.Request) bool {
+// Each owner request slides the session forward, re-issuing the cookie when it has fallen behind.
+func (s *server) ownerSession(w http.ResponseWriter, r *http.Request) bool {
 	c, err := r.Cookie(cookieName)
-	return err == nil && s.sessions.Valid(c.Value)
+	if err != nil {
+		return false
+	}
+	ok, reissue := s.sessions.Touch(c.Value)
+	if ok && !reissue.IsZero() {
+		s.setSessionCookies(w, r, c.Value, reissue)
+	}
+	return ok
 }
 
 // The method a route answers is a property of the route, so it is gated at registration.
@@ -49,7 +57,7 @@ func post(next http.HandlerFunc) http.HandlerFunc {
 
 func (s *server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !s.ownerSession(r) {
+		if !s.ownerSession(w, r) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -60,7 +68,7 @@ func (s *server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 // requireAccess admits the owner, or a share link whose mode reaches the level this route needs.
 func (s *server) requireAccess(next http.HandlerFunc, level access) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.ownerSession(r) {
+		if s.ownerSession(w, r) {
 			next(w, r)
 			return
 		}

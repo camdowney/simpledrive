@@ -210,7 +210,7 @@ age -d -i vault.key <blob-id> > my-file.pdf
 | `root_dir`      | `-root-dir`      | —       | Directory served as the drive. Required.                                               |
 | `username`      | `-username`      | —       | Login username. Required.                                                              |
 | `password_hash` | `-password`      | —       | bcrypt hash of the password. Required; `setup` generates it.                           |
-| `session_hours` | `-session-hours` | `48`    | Session lifetime. Absent from `config.json`, it is 24.                                 |
+| `session_hours` | `-session-hours` | `48`    | Hours of inactivity before sign-out. Absent from `config.json`, it is 24.             |
 | `trash_days`    | `-trash-days`    | `7`     | Days a deleted file stays in `.trash`. Negative keeps it indefinitely.                 |
 
 Alongside `config.json`, the server keeps `thumbcache/` (thumbnails),
